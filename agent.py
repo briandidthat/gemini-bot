@@ -25,6 +25,9 @@ class Agent:
         return True
 
     def generate_content(self, prompt: str) -> str:
+        if not self.validate_limit():
+            raise ValueError("Daily limit has been reached.")
+
         if len(prompt) >= 1000:
             raise ValueError("Prompt is over 1k characters.")
 
