@@ -39,7 +39,8 @@ async def generate(ctx, prompt: str):
         content = gemini_agent.generate_content(prompt)
     except ValueError as e:
         content = e.__repr__()
-    ctx.send(f"Hi {ctx.author.name}. Your content as requested:\n{content}")
+
+    await ctx.send(f"Hi {ctx.author.name}. Your content as requested:\n{content}")
 
 
 if __name__ == "__main__":
