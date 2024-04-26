@@ -1,9 +1,16 @@
 import os
 import google.generativeai as genai
 
+# configure google genai
 genai.configure(api_key=os.environ["GOOGLE_API_KEY"])
 
-model = genai.GenerativeModel("gemini-1.5-pro-latest")
 
-# response = model.generate_content("Describe the role of a Product Manager in the software engineering sector.")
-# print(response.text)
+from agent import Agent
+
+agent = Agent(model_name="gemini-1.0-pro-latest", daily_limit=1500)
+
+content = agent.generate_content(
+    "Generate a list of the 5 most critically acclaimed american horror movies of all time."
+)
+
+print(content)
