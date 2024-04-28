@@ -40,8 +40,17 @@ async def on_message(message: discord.Message):
     # ignore messages created by the bot itself
     if user == bot.user:
         return
-    # since the message contains <MEMBER_ID>, split at > and return the rest
-    prompt = message.content.split("> ")[1]
+
+    # if the bot is not mentioned in the chat, ignore
+    if not bot.user.mentioned_in(message=message):
+        return
+
+    prompt = None
+    # if the message contains <@MEMBER_ID> (when the bot is mentioned), split at > and return the rest
+    if message.content.startswith("<@"):
+        prompt = message.content.split("> ")[1]
+    else:  # otherwise it is a reply to a previous message, therefore will not include member Id
+        prompt = message.content
 
     try:
         content = gemini_agent.send_chat(user.name, prompt)
