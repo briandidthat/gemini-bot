@@ -34,13 +34,15 @@ async def on_ready():
 
 @bot.command(name="generate", description="generate content using gemini")
 async def generate(ctx, prompt: str):
+    username = ctx.author.name
     content = None
+
     try:
         content = gemini_agent.generate_content(prompt)
-    except ValueError as e:
-        content = e.__repr__()
-
-    await ctx.send(f"Hi {ctx.author.name}. Your content as requested:\n{content}")
+        await ctx.send(f"@{username} Your content as requested:\n{content}")
+    except Exception as e:
+        content = str(e)
+        await ctx.send(f"@{username} There was an exception. {content}")
 
 
 if __name__ == "__main__":
