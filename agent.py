@@ -2,6 +2,7 @@ import datetime
 
 from typing import Dict
 from dataclasses import dataclass
+from logger import agent_logger
 from discord.ext import commands, tasks
 from google.generativeai import GenerativeModel, ChatSession
 
@@ -60,6 +61,7 @@ class Agent:
             chat = self.__model.start_chat(history=[])
             chat_info = ChatInfo(username, chat, datetime.datetime.now())
             self.__chats[username] = chat_info
+            agent_logger.info("New chat created", extra=dict(chat_info=chat_info))
 
         response = chat.send_message(prompt)
         self.increase_request_count()

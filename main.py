@@ -35,19 +35,19 @@ async def on_ready():
 
 @bot.event
 async def on_message(message: discord.Message):
-    username = message.author
+    user = message.author
 
     # ignore messages created by the bot itself
-    if username == bot.user:
+    if user == bot.user:
         return
-
-    prompt = message.content
+    # since the message contains <MEMBER_ID>, split at > and return the rest
+    prompt = message.content.split("> ")[1]
 
     try:
-        content = gemini_agent.send_chat(username, prompt)
+        content = gemini_agent.send_chat(user.name, prompt)
         logger.info(
             "Chat request completed",
-            extra=dict(username=username, prompt=prompt, response_length=len(content)),
+            extra=dict(username=user.name, prompt=prompt, response_length=len(content)),
         )
         await message.reply(f"{content}")
     except Exception as e:
