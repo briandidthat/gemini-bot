@@ -44,8 +44,11 @@ async def on_message(message: discord.Message):
     prompt = message.content
 
     try:
-        logger.info("Chat request made", extra=dict(username=username, prompt=prompt))
         content = gemini_agent.send_chat(username, prompt)
+        logger.info(
+            "Chat request completed",
+            extra=dict(username=username, prompt=prompt, response_length=len(content)),
+        )
         await message.reply(f"{content}")
     except Exception as e:
         content = str(e)
