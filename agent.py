@@ -68,11 +68,13 @@ class Agent:
         return response.text
 
     def __validate_request_limit(self) -> None:
+        """Will throw ValueError if the request limit will be exceeded."""
         less_than_limit = self.__request_count + 1 < self.__daily_limit
         if not less_than_limit:
             raise ValueError("Daily limit has been reached.")
 
     def __validate_prompt_limit(self, prompt: str) -> None:
+        """Will throw ValueError if the prompt is greater than 1000 chars."""
         less_than_limit = len(prompt) < 1000
         if not less_than_limit:
             raise ValueError("Prompt is over 1k characters.")
@@ -92,7 +94,7 @@ class AgentCog(commands.Cog, name="AgentCog"):
     @tasks.loop(time=scheduled_time)
     async def reset_count_task(self):
         """This method resets the request count of the agent to 0 every day at 00:00:00 UTC"""
-        print("Resetting request count to 0.")
+        agent_logger.info("Resetting request count to 0.")
         self.__agent.reset_request_count()
 
     @tasks.loop(time=scheduled_time)
@@ -101,4 +103,5 @@ class AgentCog(commands.Cog, name="AgentCog"):
         for username, chat_info in self.__agent.__chats.items():
             hours_elapsed = datetime.datetime.now() - chat_info.creation_time
             if hours_elapsed > self.__chat_ttl:
+                agent_logger.info("Removing chat", extra=dict(username=username))
                 self.__agent.remove_chat(username)
