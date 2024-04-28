@@ -3,6 +3,7 @@ import os
 import google.generativeai as genai
 import discord
 
+from logger import logger
 from discord.ext import commands
 from agent import Agent, AgentCog
 
@@ -16,7 +17,7 @@ genai.configure(api_key=GOOGLE_API_KEY)
 # initialize Agent instance for content generation
 gemini_agent = Agent(model_name="gemini-1.0-pro-latest", daily_limit=1500)
 # initialize AgentCog instance for scheduling tasks related to the agent
-gemini_agent_cog = AgentCog(gemini_agent)
+gemini_agent_cog = AgentCog(gemini_agent, 6)
 
 # create intents object for discord bot initialization
 intents = discord.Intents.default()
@@ -29,20 +30,30 @@ bot = commands.Bot(command_prefix="$", intents=intents)
 @bot.event
 async def on_ready():
     await bot.add_cog(gemini_agent_cog)
-    print("Gemini bot is online")
+    logger.info("Gemini bot is online")
 
 
-@bot.command(name="generate", description="generate content using gemini")
-async def generate(ctx, prompt: str):
-    username = ctx.author.name
-    content = None
+@bot.event
+async def on_message(message: discord.Message):
+    username = message.author
+
+    # ignore messages created by the bot itself
+    if username == bot.user:
+        return
+
+    prompt = message.content
 
     try:
-        content = gemini_agent.generate_content(prompt)
-        await ctx.send(f"@{username} Your content as requested:\n{content}")
+        logger.info("Chat request made", extra=dict(username=username, prompt=prompt))
+        content = gemini_agent.send_chat(username, prompt)
+        await message.reply(f"{content}")
     except Exception as e:
         content = str(e)
-        await ctx.send(f"@{username} There was an exception. {content}")
+        logger.error(
+            "An exception occured when requesting for content.",
+            extra=dict(exception=content),
+        )
+        await message.reply(f"There was an exception. {content}")
 
 
 if __name__ == "__main__":
