@@ -1,17 +1,26 @@
-import datetime
+from datetime import datetime, timedelta, time
 
 from typing import Dict
 from dataclasses import dataclass
-from logger import agent_logger
 from discord.ext import commands, tasks
 from google.generativeai import GenerativeModel, ChatSession
+
+from logger import agent_logger
 
 
 @dataclass
 class ChatInfo:
     username: str
     chat: ChatSession
-    creation_time: datetime.datetime
+    creation_time: datetime
+    last_message: datetime
+
+    def serialize(self) -> Dict:
+        return {
+            "username": self.username,
+            "creation_time": self.creation_time,
+            "last_message": self.last_message,
+        }
 
 
 class Agent:
@@ -42,6 +51,9 @@ class Agent:
     def remove_chat(self, username: str) -> None:
         self.__chats.pop(username, None)
 
+    def remove_all_chats(self) -> None:
+        self.__chats.clear()
+
     def send_chat(self, username: str, prompt: str) -> str:
         """Sends a chat interaction for a specific user.
         Args:
@@ -59,11 +71,14 @@ class Agent:
         if chat_info == None:
             # Start a new chat if no chat history exists for the user
             chat = self.__model.start_chat(history=[])
-            chat_info = ChatInfo(username, chat, datetime.datetime.now())
+            chat_info = ChatInfo(username, chat, datetime.now(), None)
             self.__chats[username] = chat_info
-            agent_logger.info("New chat created", extra=dict(chat_info=chat_info))
+            agent_logger.info(
+                "New chat created", extra=dict(chat_info=chat_info.serialize())
+            )
 
         response = chat.send_message(prompt)
+        chat_info.last_message = datetime.now()
         self.increase_request_count()
         return response.text
 
@@ -81,15 +96,15 @@ class Agent:
 
 
 # create time for scheduling task every day at 00:00:00
-scheduled_time = datetime.time(hour=0, minute=0, second=0)
+scheduled_time = time(hour=0, minute=0, second=0)
 
 
 class AgentCog(commands.Cog, name="AgentCog"):
     """Cog implementation to run commands that are related to the Agent class"""
 
-    def __init__(self, agent: Agent, chat_ttl: int):
+    def __init__(self, agent: Agent, chat_ttl: timedelta):
         self.__agent: Agent = agent
-        self.__chat_ttl: int = chat_ttl
+        self.__chat_ttl: timedelta = chat_ttl
 
     @tasks.loop(time=scheduled_time)
     async def reset_count_task(self):
@@ -98,10 +113,15 @@ class AgentCog(commands.Cog, name="AgentCog"):
         self.__agent.reset_request_count()
 
     @tasks.loop(time=scheduled_time)
+    async def erase_all_chats(self):
+        """This method erases all chat history every week at 00:00:00 UTC"""
+        agent_logger.info("Erasing all chat history.")
+        self.__agent.remove_all_chats()
+
+    @tasks.loop(time=scheduled_time)
     async def erase_chat_history(self):
-        """This method erases the chat info of any chat that has exceeded the ttl (time to live)"""
+        today = datetime.now()
+        """This method erases the chat info of any chat that has exceeded the ttl (time to live) of the last message"""
         for username, chat_info in self.__agent.__chats.items():
-            hours_elapsed = datetime.datetime.now() - chat_info.creation_time
-            if hours_elapsed > self.__chat_ttl:
-                agent_logger.info("Removing chat", extra=dict(username=username))
+            if today - chat_info.last_message > self.__chat_ttl:
                 self.__agent.remove_chat(username)

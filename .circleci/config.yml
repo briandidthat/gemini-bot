@@ -1,0 +1,45 @@
+version: 2.1
+
+jobs:
+  deploy-image:
+    docker:
+      - image: cimg/python:3.11
+    steps:
+      # Checkout the code as the first step.
+      - checkout
+      # When the development branch is successfully built, build and deploy docker image
+      - when:
+          condition:
+            equal: [development, <<pipeline.git.branch>>]
+          steps:
+            # Setup remote docker engine to run docker commands
+            - setup_remote_docker:
+                version: 20.10.14
+            # Build and push the latest docker image to dockerhub
+            - run:
+                name: Build and Push Docker Image
+                # login, create new builder to support multiplatform images, then build and deploy amd and arm images
+                command: |
+                  echo $DOCKER_KEY | docker login -u $DOCKER_USERNAME --password-stdin
+                  docker buildx create --name=newbuilder
+                  docker buildx build --builder newbuilder --platform linux/amd64,linux/arm64 --tag briandidthat/gemini-bot:development --push .
+      - when:
+          condition:
+            equal: [main, <<pipeline.git.branch>>]
+          steps:
+            # Setup remote docker engine to run docker commands
+            - setup_remote_docker:
+                version: 20.10.14
+            # Build and push the latest docker image to dockerhub
+            - run:
+                name: Build and Push Docker Image
+                # login, create new builder to support multiplatform images, then build and deploy amd and arm images
+                command: |
+                  echo $DOCKER_KEY | docker login -u $DOCKER_USERNAME --password-stdin
+                  docker buildx create --name=newbuilder
+                  docker buildx build --builder newbuilder --platform linux/amd64,linux/arm64 --tag briandidthat/gemini-bot --push .
+
+workflows:
+  gemini-bot:
+    jobs:
+      - deploy-image
