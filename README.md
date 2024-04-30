@@ -16,12 +16,12 @@ Enhance your Discord server with a powerful conversational AI chatbot backed by 
 
 2. Obtain API Keys:
 
-   - Gemini API Key. Head over to [AI Studio](https://aistudio.google.com/app/apikey) to generate that.
-   - Discord API Key. Head over to [Discord Developer Portal](https://discord.com/developers/applications). Make sure to invit
+   - Gemini API Key. Head over to [AI Studio](https://aistudio.google.com/app/apikey).
+   - Discord API Key. Head over to [Discord Developer Portal](https://discord.com/developers/applications).
 
-3. Head over to your infrastructure of choice and define the following environment variables:
+3. Head over to your deployment infrastructure of choice and define the following environment variables:
 
-   - `CHAT_TTL`: The time-to-live (TTL) for each chat in days. (max is 3)
+   - `CHAT_TTL`: The time-to-live (TTL) for each chat in days.
    - `DAILY_LIMIT`: The daily limit to the amount of requests your gemini agent will accept.
    - `DISCORD_TOKEN`: Your Discord API Key.
    - `GOOGLE_API_KEY`: Your Gemini API Key.

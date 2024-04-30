@@ -70,8 +70,8 @@ class Agent:
         # Fetch existing chat data
         chat_info = self.__chats.get(username)
         # If chat_info is None, then the user has no chat history, so we will create a new chat
-        chat = None if chat_info == None else chat_info.chat
-        if chat_info == None:
+        chat = None if not chat_info else chat_info.chat
+        if chat_info is None:
             # Start a new chat if no chat history exists for the user
             chat = self.__model.start_chat(history=[])
             chat_info = ChatInfo(username, chat, datetime.now(), None)
