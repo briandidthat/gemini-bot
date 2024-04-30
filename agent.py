@@ -24,6 +24,8 @@ class ChatInfo:
 
 
 class Agent:
+    """Agent class to handle chat interactions with the generative model."""
+
     def __init__(self, model_name: str, daily_limit: int) -> None:
         self.__model: GenerativeModel = GenerativeModel(model_name)
         self.__daily_limit: int = daily_limit
@@ -67,6 +69,7 @@ class Agent:
 
         # Fetch existing chat data
         chat_info = self.__chats.get(username)
+        # If chat_info is None, then the user has no chat history, so we will create a new chat
         chat = None if chat_info == None else chat_info.chat
         if chat_info == None:
             # Start a new chat if no chat history exists for the user
@@ -78,6 +81,7 @@ class Agent:
             )
 
         response = chat.send_message(prompt)
+        # set the last message time to now
         chat_info.last_message = datetime.now()
         self.increase_request_count()
         return response.text
@@ -120,8 +124,9 @@ class AgentCog(commands.Cog, name="AgentCog"):
 
     @tasks.loop(time=scheduled_time)
     async def erase_chat_history(self):
-        today = datetime.now()
         """This method erases the chat info of any chat that has exceeded the ttl (time to live) of the last message"""
+        today = datetime.now()
+
         for username, chat_info in self.__agent.__chats.items():
             if today - chat_info.last_message > self.__chat_ttl:
                 self.__agent.remove_chat(username)
