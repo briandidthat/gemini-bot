@@ -26,20 +26,17 @@ class ChatInfo:
 class Agent:
     """Agent class to handle chat interactions with the generative model."""
 
-    def __init__(
-        self, model_name: str, daily_limit: int, generation_config: Dict[str, Any] = {}
-    ) -> None:
-        self.__model: GenerativeModel = GenerativeModel(
-            model_name, generation_config=generation_config
-        )
+    def __init__(self, model_name: str, daily_limit: int) -> None:
+        self.__model: GenerativeModel = GenerativeModel(model_name)
         self.__daily_limit: int = daily_limit
         self.__request_count: int = 0
         self.__chats: Dict[str, ChatInfo] = dict()
 
-    def set_model(
-        self, model_name: str, generation_config: Dict[str, Any] = {}
-    ) -> None:
-        self.__model = GenerativeModel(model_name, generation_config=generation_config)
+    def set_model(self, model_name: str) -> None:
+        self.__model = GenerativeModel(model_name)
+        agent_logger.info(
+            "A new model has been set.", extra=dict(model_name=model_name)
+        )
 
     def set_daily_limit(self, daily_limit: int) -> None:
         self.__daily_limit = daily_limit
@@ -61,6 +58,9 @@ class Agent:
 
     def remove_chat(self, username: str) -> None:
         self.__chats.pop(username, None)
+        agent_logger.info(
+            "Chat history has been deleted.", extra=dict(username=username)
+        )
 
     def remove_all_chats(self) -> None:
         self.__chats.clear()

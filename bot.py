@@ -1,5 +1,8 @@
+from datetime import datetime
+
 import discord
 from discord.ext import commands
+
 from agent import Agent
 from logger import bot_logger
 
@@ -20,7 +23,7 @@ class Bot(commands.Bot):
         username = message.author.name
 
         # if the bot was mentioned in the message and the message was not created by the bot
-        if self.user.mentioned_in(message=message) and username != self.user.name:
+        if self.user.mentioned_in(message) and username != self.user.name:
 
             prompt = None
             # if the message contains <@MEMBER_ID> (when the bot is mentioned), split at > and return the rest
@@ -30,12 +33,19 @@ class Bot(commands.Bot):
                 prompt = message.content
 
             try:
+                start_time = datetime.now()
                 # send chat request to the agent and log the response
                 content = self.gemini_agent.send_chat(username, prompt)
+                end_time = datetime.now()
+                runtime = int((end_time.timestamp() - start_time.timestamp()) * 1000)
+
                 bot_logger.info(
                     "Chat request completed",
                     extra=dict(
-                        username=username, prompt=prompt, response_length=len(content)
+                        username=username,
+                        prompt=prompt,
+                        response_length=len(content),
+                        runtime=runtime,
                     ),
                 )
                 # reply to the user with the content
