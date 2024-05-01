@@ -4,7 +4,7 @@ import asyncio
 
 import discord
 import google.generativeai as genai
-
+ 
 from agent import Agent, AgentCog
 from bot import Bot, BotCog
 
@@ -34,12 +34,14 @@ bot = Bot(gemini_agent=gemini_agent, command_prefix="$", intents=intents)
 bot_cog = BotCog(bot, BOT_OWNER)
 
 
-if __name__ == "__main__":
-    # add agent cog to bot for scheduling tasks
-    async def register():
-        await bot.add_cog(bot_cog)
-        await bot.add_cog(gemini_agent_cog)
+# register the cogs with the bot
+async def register():
+    await bot.add_cog(bot_cog)
+    await bot.add_cog(gemini_agent_cog)
 
+
+if __name__ == "__main__":
+    # run the coroutine to register the cogs
     asyncio.run(register())
     # run the bot
     bot.run(token=DISCORD_TOKEN)
