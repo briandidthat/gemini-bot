@@ -11,9 +11,9 @@ handler.setFormatter(
     )
 )
 
-discord_logger = logging.getLogger("discord-logger")
-discord_logger.addHandler(handler)
-discord_logger.setLevel(logging.INFO)
+bot_logger = logging.getLogger("bot-logger")
+bot_logger.addHandler(handler)
+bot_logger.setLevel(logging.INFO)
 
 
 agent_logger = logging.getLogger("agent-logger")

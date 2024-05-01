@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta, time
 
-from typing import Dict
+from typing import Dict, Any
 from dataclasses import dataclass
 from discord.ext import commands, tasks
 from google.generativeai import GenerativeModel, ChatSession
@@ -24,14 +24,19 @@ class ChatInfo:
 
 
 class Agent:
+    """Agent class to handle chat interactions with the generative model."""
+
     def __init__(self, model_name: str, daily_limit: int) -> None:
         self.__model: GenerativeModel = GenerativeModel(model_name)
         self.__daily_limit: int = daily_limit
         self.__request_count: int = 0
         self.__chats: Dict[str, ChatInfo] = dict()
 
-    def set_new_model(self, model_name: str) -> None:
+    def set_model(self, model_name: str) -> None:
         self.__model = GenerativeModel(model_name)
+        agent_logger.info(
+            "A new model has been set.", extra=dict(model_name=model_name)
+        )
 
     def set_daily_limit(self, daily_limit: int) -> None:
         self.__daily_limit = daily_limit
@@ -42,6 +47,9 @@ class Agent:
     def get_model_name(self) -> str:
         return self.__model.model_name
 
+    def get_chat_for_user(self, username: str) -> ChatInfo | None:
+        return self.__chats.get(username, None)
+
     def reset_request_count(self) -> None:
         self.__request_count = 0
 
@@ -50,9 +58,13 @@ class Agent:
 
     def remove_chat(self, username: str) -> None:
         self.__chats.pop(username, None)
+        agent_logger.info(
+            "Chat history has been deleted.", extra=dict(username=username)
+        )
 
     def remove_all_chats(self) -> None:
         self.__chats.clear()
+        agent_logger.info("All chats have been erased.")
 
     def send_chat(self, username: str, prompt: str) -> str:
         """Sends a chat interaction for a specific user.
@@ -66,9 +78,10 @@ class Agent:
         self.__validate_prompt_limit(prompt)
 
         # Fetch existing chat data
-        chat_info = self.__chats.get(username)
-        chat = None if chat_info == None else chat_info.chat
-        if chat_info == None:
+        chat_info = self.get_chat_for_user(username)
+        # If chat_info is None, then the user has no chat history, so we will create a new chat
+        chat = None if not chat_info else chat_info.chat
+        if chat is None:
             # Start a new chat if no chat history exists for the user
             chat = self.__model.start_chat(history=[])
             chat_info = ChatInfo(username, chat, datetime.now(), None)
@@ -78,6 +91,7 @@ class Agent:
             )
 
         response = chat.send_message(prompt)
+        # set the last message time to now
         chat_info.last_message = datetime.now()
         self.increase_request_count()
         return response.text
@@ -112,16 +126,17 @@ class AgentCog(commands.Cog, name="AgentCog"):
         agent_logger.info("Resetting request count to 0.")
         self.__agent.reset_request_count()
 
-    @tasks.loop(time=scheduled_time)
+    @tasks.loop(hours=72)
     async def erase_all_chats(self):
-        """This method erases all chat history every week at 00:00:00 UTC"""
+        """This method erases all chat history every three days (72 hours)"""
         agent_logger.info("Erasing all chat history.")
         self.__agent.remove_all_chats()
 
     @tasks.loop(time=scheduled_time)
     async def erase_chat_history(self):
-        today = datetime.now()
         """This method erases the chat info of any chat that has exceeded the ttl (time to live) of the last message"""
+        today = datetime.now()
+
         for username, chat_info in self.__agent.__chats.items():
             if today - chat_info.last_message > self.__chat_ttl:
                 self.__agent.remove_chat(username)

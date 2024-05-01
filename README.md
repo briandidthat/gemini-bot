@@ -11,16 +11,20 @@ Enhance your Discord server with a powerful conversational AI chatbot backed by 
 ## How to Get Started
 
 1. Create a bot account and invite it to your channel:
-    - Tutorial: [Create a bot account](https://discordpy.readthedocs.io/en/stable/discord.html)
 
-2. Obtain API Keys: 
-    - Gemini API Key. Head over to [AI Studio](https://aistudio.google.com/app/apikey) to generate that.
-    - Discord API Key. Head over to [Discord Developer Portal](https://discord.com/developers/applications). Make sure to invit
+   - Tutorial: [Create a bot account](https://discordpy.readthedocs.io/en/stable/discord.html)
 
-3. Head over to your infrastructure of choice and define the following environment variables:
-    - `CHAT_TTL`: The time-to-live (TTL) for each chat in days. (max is 3)
-    - `DISCORD_TOKEN`: Your Discord API Key.
-    - `GOOGLE_API_KEY`: Your Gemini API Key.
+2. Obtain API Keys:
+
+   - Gemini API Key. Head over to [AI Studio](https://aistudio.google.com/app/apikey).
+   - Discord API Key. Head over to [Discord Developer Portal](https://discord.com/developers/applications).
+
+3. Head over to your deployment infrastructure of choice and define the following environment variables:
+
+   - `CHAT_TTL`: The time-to-live (TTL) for each chat in days.
+   - `DAILY_LIMIT`: The daily limit to the amount of requests your gemini agent will accept.
+   - `DISCORD_TOKEN`: Your Discord API Key.
+   - `GOOGLE_API_KEY`: Your Gemini API Key.
 
 4. Deploy the [Gemini-Bot](https://hub.docker.com/repository/docker/briandidthat/gemini-bot/general) image to your infrastructure of choice.
 
