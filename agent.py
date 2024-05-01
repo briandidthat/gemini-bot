@@ -126,9 +126,9 @@ class AgentCog(commands.Cog, name="AgentCog"):
         agent_logger.info("Resetting request count to 0.")
         self.__agent.reset_request_count()
 
-    @tasks.loop(time=scheduled_time)
+    @tasks.loop(hours=72)
     async def erase_all_chats(self):
-        """This method erases all chat history every week at 00:00:00 UTC"""
+        """This method erases all chat history every three days (72 hours)"""
         agent_logger.info("Erasing all chat history.")
         self.__agent.remove_all_chats()
 

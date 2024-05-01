@@ -34,7 +34,7 @@ bot = Bot(gemini_agent=gemini_agent, command_prefix="$", intents=intents)
 bot_cog = BotCog(bot, BOT_OWNER)
 
 
-# add agent cog to bot for scheduling tasks
+# register the cogs with the bot
 async def register():
     await bot.add_cog(bot_cog)
     await bot.add_cog(gemini_agent_cog)
