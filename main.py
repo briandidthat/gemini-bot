@@ -1,14 +1,16 @@
 import os
 from datetime import timedelta
+import asyncio
 
 import discord
 import google.generativeai as genai
 
 from agent import Agent, AgentCog
-from bot import Bot
+from bot import Bot, BotCog
 
 
 # grab api keys from environment
+BOT_OWNER = os.getenv("BOT_OWNER")
 CHAT_TTL = float(os.getenv("CHAT_TTL"))
 DAILY_LIMIT = int(os.getenv("DAILY_LIMIT"))
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
@@ -27,10 +29,17 @@ intents = discord.Intents.default()
 intents.message_content = True
 
 # create bot instance
-bot = Bot(gemini_agent, command_prefix="$", intents=intents)
+bot = Bot(gemini_agent=gemini_agent, command_prefix="$", intents=intents)
+# initialize BogCog instance for bot commands
+bot_cog = BotCog(bot, BOT_OWNER)
 
 
 if __name__ == "__main__":
     # add agent cog to bot for scheduling tasks
-    bot.add_cog(gemini_agent_cog)
+    async def register():
+        await bot.add_cog(bot_cog)
+        await bot.add_cog(gemini_agent_cog)
+
+    asyncio.run(register())
+    # run the bot
     bot.run(token=DISCORD_TOKEN)

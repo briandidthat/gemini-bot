@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta, time
 
-from typing import Dict
+from typing import Dict, Any
 from dataclasses import dataclass
 from discord.ext import commands, tasks
 from google.generativeai import GenerativeModel, ChatSession
@@ -26,14 +26,20 @@ class ChatInfo:
 class Agent:
     """Agent class to handle chat interactions with the generative model."""
 
-    def __init__(self, model_name: str, daily_limit: int) -> None:
-        self.__model: GenerativeModel = GenerativeModel(model_name)
+    def __init__(
+        self, model_name: str, daily_limit: int, generation_config: Dict[str, Any] = {}
+    ) -> None:
+        self.__model: GenerativeModel = GenerativeModel(
+            model_name, generation_config=generation_config
+        )
         self.__daily_limit: int = daily_limit
         self.__request_count: int = 0
         self.__chats: Dict[str, ChatInfo] = dict()
 
-    def set_new_model(self, model_name: str) -> None:
-        self.__model = GenerativeModel(model_name)
+    def set_model(
+        self, model_name: str, generation_config: Dict[str, Any] = {}
+    ) -> None:
+        self.__model = GenerativeModel(model_name, generation_config=generation_config)
 
     def set_daily_limit(self, daily_limit: int) -> None:
         self.__daily_limit = daily_limit
@@ -43,6 +49,9 @@ class Agent:
 
     def get_model_name(self) -> str:
         return self.__model.model_name
+
+    def get_chat_for_user(self, username: str) -> ChatInfo | None:
+        return self.__chats.get(username, None)
 
     def reset_request_count(self) -> None:
         self.__request_count = 0
@@ -55,6 +64,7 @@ class Agent:
 
     def remove_all_chats(self) -> None:
         self.__chats.clear()
+        agent_logger.info("All chats have been erased.")
 
     def send_chat(self, username: str, prompt: str) -> str:
         """Sends a chat interaction for a specific user.
@@ -68,10 +78,10 @@ class Agent:
         self.__validate_prompt_limit(prompt)
 
         # Fetch existing chat data
-        chat_info = self.__chats.get(username)
+        chat_info = self.get_chat_for_user(username)
         # If chat_info is None, then the user has no chat history, so we will create a new chat
         chat = None if not chat_info else chat_info.chat
-        if chat_info is None:
+        if chat is None:
             # Start a new chat if no chat history exists for the user
             chat = self.__model.start_chat(history=[])
             chat_info = ChatInfo(username, chat, datetime.now(), None)
