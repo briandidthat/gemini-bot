@@ -2,6 +2,7 @@ from datetime import datetime
 
 import discord
 from discord.ext import commands
+from PIL import Image
 
 from agent import Agent
 from logger import bot_logger
@@ -98,3 +99,47 @@ class BotCog(commands.Cog, name="BotCog"):
                 await ctx.reply(f"New model set.")
             except Exception as e:
                 await ctx.reply(f"An error occured: {str(e)}")
+
+    # add command to generate content using and image and text prompt
+    @commands.command(name="check_image", help="Generate content using an image")
+    async def check_image(self, ctx: commands.Context):
+        author = ctx.author
+        # if called by bot or if the bot is the author, return
+        if author.bot or author.name == self.bot.user.name:
+            return
+
+        attachments = ctx.message.attachments
+        # if no attachments or empty list, return
+        if not attachments or len(attachments) == 0:
+            await ctx.reply("No image attached.")
+            return
+
+        # there should only be one element
+        attachment = attachments[0]
+
+        # extract the prompt from the message content
+        prompt = ctx.message.content.split("$check-image ")[1]
+        # if there was no prompt provided, return
+        if not prompt or len(prompt) == 0:
+            await ctx.reply("No prompt provided.")
+            return
+
+        try:
+            # convert the attachment to a file
+            file = await attachment.to_file()
+            # open as image using PIL
+            image = Image.open(fp=file.fp)
+            # generate the response using the image and text prompt
+            response = self.bot.gemini_agent.generate_content([image, prompt])
+            bot_logger.info(
+                "Content generated using image and text prompt.",
+                extra=dict(
+                    username=author.name,
+                    image_size=image.size,
+                    prompt=prompt,
+                    response_length=len(response),
+                ),
+            )
+            await ctx.reply(response)
+        except Exception as e:
+            await ctx.reply(f"An error occured: {str(e)}")
