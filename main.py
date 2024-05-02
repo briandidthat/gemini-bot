@@ -4,7 +4,7 @@ import asyncio
 
 import discord
 import google.generativeai as genai
- 
+
 from agent import Agent, AgentCog
 from bot import Bot, BotCog
 
@@ -20,7 +20,7 @@ GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 genai.configure(api_key=GOOGLE_API_KEY)
 
 # initialize Agent instance for content generation
-gemini_agent = Agent(model_name="gemini-1.0-pro-latest", daily_limit=DAILY_LIMIT)
+gemini_agent = Agent(model_name="gemini-pro-vision", daily_limit=DAILY_LIMIT)
 # initialize AgentCog instance for scheduling tasks related to the agent
 gemini_agent_cog = AgentCog(gemini_agent, timedelta(days=CHAT_TTL))
 

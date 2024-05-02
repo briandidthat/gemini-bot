@@ -4,6 +4,7 @@ from typing import Dict, Any
 from dataclasses import dataclass
 from discord.ext import commands, tasks
 from google.generativeai import GenerativeModel, ChatSession
+from google.generativeai.types import ContentsType
 
 from logger import agent_logger
 
@@ -20,6 +21,7 @@ class ChatInfo:
             "username": self.username,
             "creation_time": self.creation_time,
             "last_message": self.last_message,
+            "history": len(self.chat.history),
         }
 
 
@@ -65,6 +67,15 @@ class Agent:
     def remove_all_chats(self) -> None:
         self.__chats.clear()
         agent_logger.info("All chats have been erased.")
+
+    def generate_content(self, prompt: ContentsType) -> str:
+        """Generates content based on the prompt. This method can handle images and text."""
+        self.__validate_request_limit()
+
+        response = self.__model.generate_content(prompt)
+        self.increase_request_count()
+
+        return response.text
 
     def send_chat(self, username: str, prompt: str) -> str:
         """Sends a chat interaction for a specific user.
@@ -132,7 +143,7 @@ class AgentCog(commands.Cog, name="AgentCog"):
         agent_logger.info("Erasing all chat history.")
         self.__agent.remove_all_chats()
 
-    @tasks.loop(time=scheduled_time)
+    @tasks.loop(hours=6)
     async def erase_chat_history(self):
         """This method erases the chat info of any chat that has exceeded the ttl (time to live) of the last message"""
         today = datetime.now()
