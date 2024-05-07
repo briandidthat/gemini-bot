@@ -1,17 +1,25 @@
-from datetime import datetime
+from datetime import datetime, timedelta
+from typing import List
 
 import discord
-from discord.ext import commands
+from discord.ext import commands, tasks
 from PIL import Image
 
-from agent import Agent
+from agent import ChatAgent, VisionAgent, Orchestrator
 from logger import bot_logger
 
 
 class Bot(commands.Bot):
-    def __init__(self, gemini_agent: Agent, *args, **kwargs):
+    def __init__(
+        self,
+        chat_agent: ChatAgent,
+        vision_agent: VisionAgent,
+        daily_limit: int,
+        *args,
+        **kwargs,
+    ):
         super().__init__(*args, **kwargs)
-        self.gemini_agent = gemini_agent
+        self.orchestrator = Orchestrator(chat_agent, vision_agent, daily_limit)
 
     """EVENTS"""
 
@@ -26,7 +34,8 @@ class Bot(commands.Bot):
         # if the bot was mentioned in the message and the message was not created by the bot
         if self.user.mentioned_in(message) and username != self.user.name:
 
-            prompt = None
+            prompt, content, request_type = None, None, None
+
             # if the message contains <@MEMBER_ID> (when the bot is mentioned), split at > and return the rest
             if message.content.startswith("<@"):
                 prompt = message.content.split("> ")[1]
@@ -35,17 +44,27 @@ class Bot(commands.Bot):
 
             try:
                 start_time = datetime.now()
-                # send chat request to the agent and log the response
-                content = self.gemini_agent.send_chat(username, prompt)
+                # if the message has attachments, process the image prompt via the vision agent
+                if message.attachments:
+                    request_type = "vision"
+                    content = await self.process_image_prompt(
+                        username, prompt, message.attachments
+                    )
+                else:
+                    # else send chat request to the chat agent and log the response
+                    request_type = "chat"
+                    content = self.orchestrator.send_chat(username, prompt)
+
                 end_time = datetime.now()
+                # calculate runtime in milliseconds
                 runtime = int((end_time.timestamp() - start_time.timestamp()) * 1000)
 
                 bot_logger.info(
-                    "Chat request completed",
+                    "Processed content request.",
                     extra=dict(
+                        request_type=request_type,
                         username=username,
                         prompt=prompt,
-                        response_length=len(content),
                         runtime=runtime,
                     ),
                 )
@@ -65,13 +84,41 @@ class Bot(commands.Bot):
     async def on_member_remove(self, member: discord.Member):
         """Event handler for when a member leaves the server."""
         if not member.bot:
-            self.gemini_agent.remove_chat(member.name)
+            self.orchestrator.__chat_agent.remove_chat(member.name)
             bot_logger.info(
                 f"Removed chat for member that left.", extra=dict(username=member.name)
             )
 
+    """METHODS"""
+
+    async def process_image_prompt(
+        self, username: str, prompt: str, attachments: List[discord.Attachment]
+    ):
+        """Processes an image and prompt sent by a user."""
+
+        # if no attachments or empty list, return
+        if not attachments or len(attachments) == 0:
+            raise ValueError("No image attached.")
+
+        # there should only be one element
+        attachment = attachments[0]
+
+        try:
+            # convert the attachment to a file
+            file = await attachment.to_file()
+            type(file)
+            # open as image using PIL
+            image = Image.open(fp=file.fp)
+            # generate the response using the image and text prompt
+            response = self.orchestrator.analyze_image(username, image, prompt)
+            return response
+        except Exception as e:
+            raise e
+
 
 class BotCog(commands.Cog, name="BotCog"):
+    """Cog implementation to run commands that are related to the Bot class."""
+
     def __init__(self, bot: Bot, bot_owner: str):
         self.bot = bot
         self.bot_owner = bot_owner
@@ -82,7 +129,7 @@ class BotCog(commands.Cog, name="BotCog"):
         if ctx.author.name != self.bot_owner:
             return
 
-        self.bot.gemini_agent.remove_all_chats()
+        self.bot.orchestrator.__chat_agent.remove_all_chats()
         await ctx.reply("All chats have been erased.")
 
     # add command to set a new generative model for the agent
@@ -95,51 +142,29 @@ class BotCog(commands.Cog, name="BotCog"):
         content = ctx.message.content
         if content:
             try:
-                self.bot.gemini_agent.set_model(model_name=content)
+                self.bot.chat_agent.set_model(model_name=content)
                 await ctx.reply(f"New model set.")
             except Exception as e:
                 await ctx.reply(f"An error occured: {str(e)}")
 
-    # add command to generate content using and image and text prompt
-    @commands.command(name="check_image", help="Generate content using an image")
-    async def check_image(self, ctx: commands.Context):
-        author = ctx.author
-        # if called by bot or if the bot is the author, return
-        if author.bot or author.name == self.bot.user.name:
-            return
 
-        attachments = ctx.message.attachments
-        # if no attachments or empty list, return
-        if not attachments or len(attachments) == 0:
-            await ctx.reply("No image attached.")
-            return
+class ChatAgentCog(commands.Cog, name="AgentCog"):
+    """Cog implementation to run commands that are related to the Agent class"""
 
-        # there should only be one element
-        attachment = attachments[0]
+    def __init__(self, agent: ChatAgent, chat_ttl: timedelta):
+        self.__agent: ChatAgent = agent
+        self.__chat_ttl: timedelta = chat_ttl
 
-        # extract the prompt from the message content
-        prompt = ctx.message.content.split("$check-image ")[1]
-        # if there was no prompt provided, return
-        if not prompt or len(prompt) == 0:
-            await ctx.reply("No prompt provided.")
-            return
+    @tasks.loop(hours=24)
+    async def reset_count_task(self):
+        """This method resets the request count of the agent to 0 every 24 hours"""
+        self.__agent.reset_request_count()
 
-        try:
-            # convert the attachment to a file
-            file = await attachment.to_file()
-            # open as image using PIL
-            image = Image.open(fp=file.fp)
-            # generate the response using the image and text prompt
-            response = self.bot.gemini_agent.generate_content([image, prompt])
-            bot_logger.info(
-                "Content generated using image and text prompt.",
-                extra=dict(
-                    username=author.name,
-                    image_size=image.size,
-                    prompt=prompt,
-                    response_length=len(response),
-                ),
-            )
-            await ctx.reply(response)
-        except Exception as e:
-            await ctx.reply(f"An error occured: {str(e)}")
+    @tasks.loop(hours=6)
+    async def erase_old_chats(self):
+        """This method erases the chat info of any chat that has exceeded the ttl (time to live) of the last message"""
+        today = datetime.now()
+
+        for username, chat_info in self.__agent.__chats.items():
+            if today - chat_info.last_message > self.__chat_ttl:
+                self.__agent.remove_chat(username)
