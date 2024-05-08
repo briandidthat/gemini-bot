@@ -4,7 +4,6 @@ from PIL import Image
 from typing import Dict
 from dataclasses import dataclass
 from google.generativeai import GenerativeModel, ChatSession
-from google.generativeai.types import ContentsType
 
 from logger import chat_agent_logger, vision_agent_logger
 

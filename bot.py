@@ -133,8 +133,8 @@ class BotCog(commands.Cog, name="BotCog"):
         await ctx.reply("All chats have been erased.")
 
     # add command to set a new generative model for the agent
-    @commands.command(name="set_new_chat_model", help="Set a new model for the agent.")
-    async def set_new_chat_model(self, ctx: commands.Context):
+    @commands.command(name="set_chat_model", help="Set a new model for the agent.")
+    async def set_chat_model(self, ctx: commands.Context):
         user = ctx.author.name
         if user != self.bot_owner:
             return
@@ -169,11 +169,6 @@ class ChatAgentCog(commands.Cog, name="AgentCog"):
     def __init__(self, agent: ChatAgent, chat_ttl: timedelta):
         self.__agent: ChatAgent = agent
         self.__chat_ttl: timedelta = chat_ttl
-
-    @tasks.loop(hours=24)
-    async def reset_count_task(self):
-        """This method resets the request count of the agent to 0 every 24 hours"""
-        self.__agent.reset_request_count()
 
     @tasks.loop(hours=6)
     async def erase_old_chats(self):

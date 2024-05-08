@@ -21,7 +21,7 @@ genai.configure(api_key=GOOGLE_API_KEY)
 
 # initialize chat agent instance for content generation
 chat_agent = ChatAgent(model_name="gemini-1.0-pro-latest")
-# initialize AgentCog instance for scheduling tasks related to the agent
+# initialize AgentCog instance for scheduling tasks related to the chat agent
 chat_agent_cog = ChatAgentCog(chat_agent, timedelta(days=CHAT_TTL))
 
 # initialize vision agent instance for image content generation
