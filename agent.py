@@ -113,10 +113,10 @@ class VisionAgent:
                 username=username,
                 image_size=image.size,
                 prompt=prompt,
-                response_length=len(response),
+                response_length=len(response.text),
             ),
         )
-        return response
+        return response.text
 
 
 class Orchestrator:
@@ -159,6 +159,12 @@ class Orchestrator:
                 "Error while analyzing image.", extra=dict(error=str(e))
             )
             raise e
+
+    def set_chat_model(self, model_name: str) -> None:
+        self.__chat_agent.set_model(model_name=model_name)
+
+    def set_vision_model(self, model_name: str) -> None:
+        self.__vision_agent.set_model(model_name=model_name)
 
     def __validate_request_limit(self) -> None:
         """Will throw ValueError if the request limit will be exceeded."""
