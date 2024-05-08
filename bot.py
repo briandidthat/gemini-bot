@@ -110,7 +110,7 @@ class Bot(commands.Bot):
             # open as image using PIL
             image = Image.open(fp=file.fp)
             # generate the response using the image and text prompt
-            response = self.orchestrator.analyze_image(username, image, prompt)
+            response = self.orchestrator.analyze_image(username, prompt, image)
             return response
         except Exception as e:
             raise e
@@ -133,8 +133,8 @@ class BotCog(commands.Cog, name="BotCog"):
         await ctx.reply("All chats have been erased.")
 
     # add command to set a new generative model for the agent
-    @commands.command(name="set_new_model", help="Set a new model for the agent.")
-    async def set_new_model(self, ctx: commands.Context):
+    @commands.command(name="set_new_chat_model", help="Set a new model for the agent.")
+    async def set_new_chat_model(self, ctx: commands.Context):
         user = ctx.author.name
         if user != self.bot_owner:
             return
@@ -142,7 +142,22 @@ class BotCog(commands.Cog, name="BotCog"):
         content = ctx.message.content
         if content:
             try:
-                self.bot.chat_agent.set_model(model_name=content)
+                self.bot.orchestrator.set_chat_model(model_name=content)
+                await ctx.reply(f"New model set.")
+            except Exception as e:
+                await ctx.reply(f"An error occured: {str(e)}")
+
+    # add command to set a new generative model for the vision agent
+    @commands.command(name="set_vision_model", help="Set a new model for the agent.")
+    async def set_new_chat_model(self, ctx: commands.Context):
+        user = ctx.author.name
+        if user != self.bot_owner:
+            return
+
+        content = ctx.message.content
+        if content:
+            try:
+                self.bot.orchestrator.set_vision_model(model_name=content)
                 await ctx.reply(f"New model set.")
             except Exception as e:
                 await ctx.reply(f"An error occured: {str(e)}")
