@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gemini-bot-deployment
+  labels:
+    app: gemini-bot
+  spec:
+    replicas: 1
+    selector:
+      matchLabels:
+        app: gemini-bot
+    template:
+      metadata:
+        labels:
+          app: gemini-bot
+      spec:
+        containers:
+          - name: gemini-bot
+            image: briandidthat/gemini-bot
+            env:
+              - name: CHAT_TTL
+                valueFrom:
+                  configMapKeyRef:
+                    name: gemini-bot-config
+                    key: CHAT_TTL
+              - name: DAILY_LIMIT
+                valueFrom:
+                  configMapKeyRef:
+                    name: gemini-bot-config
+                    key: DAILY_LIMIT
+              - name: BOT_OWNER
+                valueFrom:
+                  secretKeyRef:
+                    name: gemini-bot-secrets
+                    key: BOT_OWNER
+              - name: GOOGLE_API_KEY
+                valueFrom:
+                  secretKeyRef:
+                    name: gemini-bot-secrets
+                    key: GOOGLE_API_KEY
+              - name: DISCORD_TOKEN
+                valueFrom:
+                  secretKeyRef:
+                    name: gemini-bot-secrets
+                    key: DISCORD_TOKEN
