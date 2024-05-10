@@ -60,7 +60,7 @@ class ChatAgent:
         self.__chats.clear()
         chat_agent_logger.info("All chats have been erased.", extra=dict(chats=chats))
 
-    def send_chat(self, username: str, prompt: str) -> str:
+    def process_chat_prompt(self, username: str, prompt: str) -> str:
         """Sends a chat interaction for a specific user.
         Args:
             username: The name of the user.
@@ -78,13 +78,17 @@ class ChatAgent:
             chat = self.__model.start_chat(history=[])
             chat_info = ChatInfo(username, chat, datetime.now(), None)
             self.__chats[username] = chat_info
-            chat_agent_logger.info(
-                "New chat created", extra=dict(chat_info=chat_info.serialize())
-            )
 
         response = chat.send_message(prompt)
         # set the last message time to now
         chat_info.last_message = datetime.now()
+        # log the chat message sent
+        chat_agent_logger.info(
+            "Chat message sent.",
+            extra=dict(
+                username=username, prompt=prompt, chat_info=chat_info.serialize()
+            ),
+        )
         return response.text
 
 
@@ -102,7 +106,12 @@ class VisionAgent:
     def get_model_name(self) -> str:
         return self.__model.model_name
 
-    def analyze_image(self, username: str, image: Image.Image, prompt: str) -> str:
+    def process_image_prompt(
+        self,
+        username: str,
+        prompt: str,
+        image: Image.Image,
+    ) -> str:
         """Generates content based on the prompt and image"""
         # generate the response using the image and text prompt
         response = self.__model.generate_content([image, prompt])
@@ -127,43 +136,38 @@ class Orchestrator:
         self.__daily_limit: int = daily_limit
         self.__request_count: int = 0
 
+    def set_chat_model(self, model_name: str) -> None:
+        self.__chat_agent.set_model(model_name)
+
+    def set_vision_model(self, model_name: str) -> None:
+        self.__vision_agent.set_model(model_name)
+
     def get_request_count(self) -> int:
         return self.__request_count
 
     def increase_request_count(self) -> None:
         self.__request_count += 1
 
-    def send_chat(self, username: str, prompt: str) -> str:
+    def process_chat_prompt(self, username: str, prompt: str) -> str:
         """Sends a chat interaction for a specific user."""
 
         self.__validate_request_limit()
         self.__validate_prompt(prompt)
 
-        response = self.__chat_agent.send_chat(username, prompt)
+        response = self.__chat_agent.process_chat_prompt(username, prompt)
         self.__request_count += 1
         return response
 
-    def analyze_image(self, username: str, prompt: str, image: Image.Image) -> str:
+    def process_image_prompt(
+        self, username: str, prompt: str, image: Image.Image
+    ) -> str:
         """Generates content based on the prompt and image"""
         self.__validate_request_limit()
         self.__validate_prompt(prompt)
 
-        try:
-            # open as image using PIL
-            response = self.__vision_agent.analyze_image(username, image, prompt)
-            self.__request_count += 1
-            return response
-        except Exception as e:
-            vision_agent_logger.error(
-                "Error while analyzing image.", extra=dict(error=str(e))
-            )
-            raise e
-
-    def set_chat_model(self, model_name: str) -> None:
-        self.__chat_agent.set_model(model_name=model_name)
-
-    def set_vision_model(self, model_name: str) -> None:
-        self.__vision_agent.set_model(model_name=model_name)
+        response = self.__vision_agent.process_image_prompt(username, prompt, image)
+        self.__request_count += 1
+        return response
 
     def __validate_request_limit(self) -> None:
         """Will throw ValueError if the request limit will be exceeded."""
@@ -172,7 +176,7 @@ class Orchestrator:
             raise ValueError("Daily limit has been reached.")
 
     def __validate_prompt(self, prompt: str) -> None:
-        """Will throw ValueError if the prompt is empty."""
+        """Will throw ValueError if the prompt is empty or greater than 1000 chars."""
         if not prompt:
             raise ValueError("Prompt is empty.")
 
