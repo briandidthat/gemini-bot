@@ -44,7 +44,7 @@ class Bot(commands.Bot):
 
             try:
                 start_time = datetime.now()
-                # if the message has attachments, process the image prompt via the vision agent
+                # if the message has attachments, process the image prompt via the vision agent. Will throw exception if not an image
                 if message.attachments:
                     request_type = "vision"
                     content = await self.process_image_prompt(
@@ -53,7 +53,7 @@ class Bot(commands.Bot):
                 else:
                     # else send chat request to the chat agent and log the response
                     request_type = "chat"
-                    content = self.orchestrator.send_chat(username, prompt)
+                    content = self.orchestrator.process_chat_prompt(username, prompt)
 
                 end_time = datetime.now()
                 # calculate runtime in milliseconds
@@ -64,8 +64,8 @@ class Bot(commands.Bot):
                     extra=dict(
                         request_type=request_type,
                         username=username,
-                        prompt=prompt,
                         runtime=runtime,
+                        request_count=self.orchestrator.get_request_count(),
                     ),
                 )
                 # reply to the user with the content
@@ -73,8 +73,8 @@ class Bot(commands.Bot):
             except Exception as e:
                 content = str(e)
                 bot_logger.error(
-                    "An exception occured when requesting for content.",
-                    extra=dict(exception=content),
+                    f"An exception occured when making {request_type} request.",
+                    extra=dict(exception=content, username=username, prompt=prompt),
                 )
                 await message.reply(f"There was an exception. {content}")
         else:
@@ -91,6 +91,11 @@ class Bot(commands.Bot):
 
     """METHODS"""
 
+    async def process_chat_prompt(self, username: str, prompt: str):
+        """Processes a chat prompt sent by a user."""
+        response = self.orchestrator.process_chat_prompt(username, prompt)
+        return response
+
     async def process_image_prompt(
         self, username: str, prompt: str, attachments: List[discord.Attachment]
     ):
@@ -103,17 +108,12 @@ class Bot(commands.Bot):
         # there should only be one element
         attachment = attachments[0]
 
-        try:
-            # convert the attachment to a file
-            file = await attachment.to_file()
-            type(file)
-            # open as image using PIL
-            image = Image.open(fp=file.fp)
-            # generate the response using the image and text prompt
-            response = self.orchestrator.analyze_image(username, prompt, image)
-            return response
-        except Exception as e:
-            raise e
+        file = await attachment.to_file()
+        # open as image using PIL
+        image = Image.open(fp=file.fp)
+        # generate the response using the image and text prompt
+        response = self.orchestrator.process_image_prompt(username, prompt, image)
+        return response
 
 
 class BotCog(commands.Cog, name="BotCog"):
