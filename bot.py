@@ -114,9 +114,7 @@ class Bot(commands.Bot):
             response = self.orchestrator.process_chat_prompt(username, prompt)
             return response
         except Exception as e:
-            raise BotException(
-                message=f"An error occured: {str(e)}", type=type(e).__name__
-            )
+            raise BotException(message=str(e), type=type(e).__name__)
 
     async def process_image_prompt(
         self, username: str, prompt: str, attachments: List[discord.Attachment]
@@ -138,9 +136,7 @@ class Bot(commands.Bot):
             response = self.orchestrator.process_image_prompt(username, prompt, image)
             return response
         except Exception as e:
-            raise BotException(
-                message=f"An error occured: {str(e)}", type=type(e).__name__
-            )
+            raise BotException(message=str(e), type=type(e).__name__)
 
 
 class BotCog(commands.Cog, name="BotCog"):
