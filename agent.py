@@ -49,6 +49,9 @@ class ChatAgent:
     def get_chat_for_user(self, username: str) -> ChatInfo | None:
         return self.__chats.get(username, None)
 
+    def get_chats(self) -> Dict[str, ChatInfo]:
+        return self.__chats
+
     def remove_chat(self, username: str) -> None:
         self.__chats.pop(username, None)
         chat_agent_logger.info(
@@ -147,6 +150,15 @@ class Orchestrator:
 
     def increase_request_count(self) -> None:
         self.__request_count += 1
+
+    def get_chats(self) -> Dict[str, ChatInfo]:
+        return self.__chat_agent.get_chats()
+
+    def remove_chat(self, username: str) -> None:
+        self.__chat_agent.remove_chat(username)
+
+    def remove_all_chats(self) -> None:
+        self.__chat_agent.remove_all_chats()
 
     def process_chat_prompt(self, username: str, prompt: str) -> str:
         """Sends a chat interaction for a specific user."""
