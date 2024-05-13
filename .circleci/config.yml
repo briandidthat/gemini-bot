@@ -14,7 +14,7 @@ jobs:
           steps:
             # Setup remote docker engine to run docker commands
             - setup_remote_docker:
-                version: 20.10.14
+                version: default
             # Build and push the latest docker image to dockerhub
             - run:
                 name: Build and Push Docker Image
@@ -29,7 +29,7 @@ jobs:
           steps:
             # Setup remote docker engine to run docker commands
             - setup_remote_docker:
-                version: 20.10.14
+                version: default
             # Build and push the latest docker image to dockerhub
             - run:
                 name: Build and Push Docker Image
