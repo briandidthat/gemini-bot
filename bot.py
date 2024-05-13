@@ -148,7 +148,7 @@ class BotCog(commands.Cog, name="BotCog"):
         self.chat_ttl = chat_ttl
 
     # add command to erase all chats manually. will only be accepted by the bot owner
-    @commands.command(name="erase_chats", help="Erase all chats from the agent.")
+    @commands.command(name="erase_chats", help="Erase all chats from the chat agent.")
     async def erase_chats(self, ctx: commands.Context):
         if ctx.author.name != self.bot_owner:
             return
@@ -157,7 +157,7 @@ class BotCog(commands.Cog, name="BotCog"):
         await ctx.reply("All chats have been erased.")
 
     # add command to set a new generative model for the agent
-    @commands.command(name="set_chat_model", help="Set a new model for the agent.")
+    @commands.command(name="set_chat_model", help="Set a new model for the chat agent.")
     async def set_chat_model(self, ctx: commands.Context):
         """Command to set a new generative model for the chat agent."""
         user = ctx.author.name
@@ -170,8 +170,8 @@ class BotCog(commands.Cog, name="BotCog"):
             await ctx.reply(f"New model set.")
 
     # add command to set a new generative model for the vision agent
-    @commands.command(name="set_vision_model", help="Set a new model for the agent.")
-    async def set_new_chat_model(self, ctx: commands.Context):
+    @commands.command(name="set_vision_model", help="Set a new model for the vision agent.")
+    async def set_vision_model(self, ctx: commands.Context):
         """Command to set a new generative model for the vision agent."""
         user = ctx.author.name
         if user != self.bot_owner:
