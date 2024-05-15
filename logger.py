@@ -16,11 +16,6 @@ bot_logger.addHandler(handler)
 bot_logger.setLevel(logging.INFO)
 
 
-chat_agent_logger = logging.getLogger("chat-agent")
-chat_agent_logger.addHandler(handler)
-chat_agent_logger.setLevel(logging.INFO)
-
-
-vision_agent_logger = logging.getLogger("vision-agent")
-vision_agent_logger.addHandler(handler)
-vision_agent_logger.setLevel(logging.INFO)
+gemini_agent_logger = logging.getLogger("gemini-agent")
+gemini_agent_logger.addHandler(handler)
+gemini_agent_logger.setLevel(logging.INFO)
