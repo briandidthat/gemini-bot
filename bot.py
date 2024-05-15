@@ -5,7 +5,7 @@ import discord
 from discord.ext import commands, tasks
 from PIL import Image
 
-from agent import ChatAgent, VisionAgent, Orchestrator
+from agent import GeminiAgent, Orchestrator
 from logger import bot_logger
 
 
@@ -24,16 +24,13 @@ class BotException(Exception):
 class Bot(commands.Bot):
     def __init__(
         self,
-        chat_agent: ChatAgent,
-        vision_agent: VisionAgent,
+        gemini_agent: GeminiAgent,
         daily_limit: int,
         *args,
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
-        self.orchestrator: Orchestrator = Orchestrator(
-            chat_agent, vision_agent, daily_limit
-        )
+        self.orchestrator: Orchestrator = Orchestrator(gemini_agent, daily_limit)
 
     """EVENTS"""
 
@@ -67,7 +64,7 @@ class Bot(commands.Bot):
                 else:
                     # else send chat request to the chat agent and log the response
                     request_type = "chat"
-                    content = self.orchestrator.process_chat_prompt(username, prompt)
+                    content = self.process_chat_prompt(username, prompt)
 
                 end_time = datetime.now()
                 # calculate runtime in milliseconds
@@ -99,7 +96,7 @@ class Bot(commands.Bot):
     async def on_member_remove(self, member: discord.Member):
         """Event handler for when a member leaves the server."""
         if not member.bot:
-            self.orchestrator.__chat_agent.remove_chat(member.name)
+            self.orchestrator.__gemini_agent.remove_chat(member.name)
             bot_logger.info(
                 f"Removed chat for member that left.", extra=dict(username=member.name)
             )
@@ -157,9 +154,9 @@ class BotCog(commands.Cog, name="BotCog"):
         await ctx.reply("All chats have been erased.")
 
     # add command to set a new generative model for the agent
-    @commands.command(name="set_chat_model", help="Set a new model for the chat agent.")
+    @commands.command(name="set_model", help="Set a new model for the gemini agent.")
     async def set_chat_model(self, ctx: commands.Context):
-        """Command to set a new generative model for the chat agent."""
+        """Command to set a new generative model for the gemini agent."""
         user = ctx.author.name
         if user != self.bot_owner:
             return
@@ -169,18 +166,6 @@ class BotCog(commands.Cog, name="BotCog"):
             self.bot.orchestrator.set_chat_model(model_name=content)
             await ctx.reply(f"New model set.")
 
-    # add command to set a new generative model for the vision agent
-    @commands.command(name="set_vision_model", help="Set a new model for the vision agent.")
-    async def set_vision_model(self, ctx: commands.Context):
-        """Command to set a new generative model for the vision agent."""
-        user = ctx.author.name
-        if user != self.bot_owner:
-            return
-
-        content = ctx.message.content
-        if content:
-            self.bot.orchestrator.set_vision_model(model_name=content)
-            await ctx.reply(f"New model set.")
 
     @tasks.loop(hours=6)
     async def erase_old_chats(self):

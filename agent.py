@@ -5,7 +5,7 @@ from typing import Dict
 from dataclasses import dataclass
 from google.generativeai import GenerativeModel, ChatSession
 
-from logger import chat_agent_logger, vision_agent_logger
+from logger import gemini_agent_logger
 
 
 @dataclass
@@ -26,8 +26,8 @@ class ChatInfo:
         }
 
 
-class ChatAgent:
-    """Agent class to handle chat interactions with the generative model."""
+class GeminiAgent:
+    """Agent class to handle chat interactions with the generative model. The model must be multimodal in order to handle all requests."""
 
     def __init__(self, model_name: str) -> None:
         self.__model: GenerativeModel = GenerativeModel(model_name)
@@ -36,7 +36,7 @@ class ChatAgent:
 
     def set_model(self, model_name: str) -> None:
         self.__model = GenerativeModel(model_name)
-        chat_agent_logger.info(
+        gemini_agent_logger.info(
             "A new model has been set.", extra=dict(model_name=model_name)
         )
 
@@ -54,14 +54,16 @@ class ChatAgent:
 
     def remove_chat(self, username: str) -> None:
         self.__chats.pop(username, None)
-        chat_agent_logger.info(
+        gemini_agent_logger.info(
             "Chat history has been deleted.", extra=dict(username=username)
         )
 
     def remove_all_chats(self) -> None:
         chats = len(self.__chats)
         self.__chats.clear()
-        chat_agent_logger.info("All chats have been erased.", extra=dict(chats_deleted=chats))
+        gemini_agent_logger.info(
+            "All chats have been erased.", extra=dict(chats_deleted=chats)
+        )
 
     def process_chat_prompt(self, username: str, prompt: str) -> str:
         """Sends a chat interaction for a specific user.\n
@@ -86,28 +88,13 @@ class ChatAgent:
         # set the last message time to now
         chat_info.last_message = datetime.now()
         # log the chat message sent
-        chat_agent_logger.info(
+        gemini_agent_logger.info(
             "Chat message sent.",
             extra=dict(
                 username=username, prompt=prompt, chat_info=chat_info.serialize()
             ),
         )
         return response.text
-
-
-class VisionAgent:
-    # class to handle vision interactions with the generative model
-    def __init__(self, model_name: str):
-        self.__model: GenerativeModel = GenerativeModel(model_name)
-
-    def set_model(self, model_name: str) -> None:
-        self.__model = GenerativeModel(model_name)
-        vision_agent_logger.info(
-            "A new model has been set.", extra=dict(model_name=model_name)
-        )
-
-    def get_model_name(self) -> str:
-        return self.__model.model_name
 
     def process_image_prompt(
         self,
@@ -126,7 +113,7 @@ class VisionAgent:
 
         # generate the response using the image and text prompt
         response = self.__model.generate_content([image, prompt])
-        vision_agent_logger.info(
+        gemini_agent_logger.info(
             "Content generated using image and text prompt.",
             extra=dict(
                 username=username,
@@ -139,11 +126,8 @@ class VisionAgent:
 
 
 class Orchestrator:
-    def __init__(
-        self, chat_agent: ChatAgent, vision_agent: VisionAgent, daily_limit: int
-    ):
-        self.__chat_agent: ChatAgent = chat_agent
-        self.__vision_agent: VisionAgent = vision_agent
+    def __init__(self, gemini_agent: GeminiAgent, daily_limit: int):
+        self.__gemini_agent: GeminiAgent = gemini_agent
         self.__daily_limit: int = daily_limit
         self.__request_count: int = 0
 
@@ -151,22 +135,19 @@ class Orchestrator:
         return self.__request_count
 
     def get_chats(self) -> Dict[str, ChatInfo]:
-        return self.__chat_agent.get_chats()
+        return self.__gemini_agent.get_chats()
 
-    def set_chat_model(self, model_name: str) -> None:
-        self.__chat_agent.set_model(model_name)
-
-    def set_vision_model(self, model_name: str) -> None:
-        self.__vision_agent.set_model(model_name)
+    def set_model(self, model_name: str) -> None:
+        self.__gemini_agent.set_model(model_name)
 
     def increase_request_count(self) -> None:
         self.__request_count += 1
 
     def remove_chat(self, username: str) -> None:
-        self.__chat_agent.remove_chat(username)
+        self.__gemini_agent.remove_chat(username)
 
     def remove_all_chats(self) -> None:
-        self.__chat_agent.remove_all_chats()
+        self.__gemini_agent.remove_all_chats()
 
     def process_chat_prompt(self, username: str, prompt: str) -> str:
         """Sends a chat interaction for a specific user."""
@@ -174,7 +155,7 @@ class Orchestrator:
         self.__validate_request_limit()
         self.__validate_prompt(prompt)
 
-        response = self.__chat_agent.process_chat_prompt(username, prompt)
+        response = self.__gemini_agent.process_chat_prompt(username, prompt)
         self.__request_count += 1
         return response
 
@@ -185,7 +166,7 @@ class Orchestrator:
         self.__validate_request_limit()
         self.__validate_prompt(prompt)
 
-        response = self.__vision_agent.process_image_prompt(username, prompt, image)
+        response = self.__gemini_agent.process_image_prompt(username, prompt, image)
         self.__request_count += 1
         return response
 
