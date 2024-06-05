@@ -1,9 +1,8 @@
 from datetime import datetime, timedelta
-from typing import Dict, List, Type
+from typing import Dict, Type
 
 import discord
 from discord.ext import commands, tasks
-from PIL import Image
 
 from agent import GeminiAgent, Orchestrator
 from logger import bot_logger
@@ -13,9 +12,9 @@ class BotException(Exception):
     """Custom exception class for the discord bot."""
 
     def __init__(self, message: str, type: str):
-        super().__init__(message)
         self.message = message
         self.type = type
+        super().__init__(message)
 
     def serialize(self) -> Dict[str, str]:
         return dict(message=self.message, type=self.type)
@@ -42,7 +41,7 @@ class Bot(commands.Bot):
         """Event handler for when a message is sent in the chat."""
         username = message.author.name
 
-        # if the bot was mentioned in the message and the message was not created by the bot
+        # if the bot was mentioned in the message and the message was not created by the bot itself
         if self.user.mentioned_in(message) and username != self.user.name:
 
             prompt, content, request_type = None, None, None
@@ -52,14 +51,28 @@ class Bot(commands.Bot):
                 prompt = message.content.split("> ")[1]
             else:  # otherwise it is a reply to a previous message, therefore will not include member Id
                 prompt = message.content
-
             try:
                 start_time = datetime.now()
                 # if the message has attachments, process the image prompt via the vision agent. Will throw exception if not an image
                 if message.attachments:
+                    attachments_length = len(message.attachments)
+                    # if more than one message, reply to user letting them know only one file is accepted at a time
+                    if attachments_length > 1:
+                        await message.reply(
+                            f"Only one file can be processed at a time."
+                        )
+                        bot_logger.error(
+                            "Rejected file prompt due to file count.",
+                            extra=dict(file_count=attachments_length),
+                        )
+                        return
+                    # set the request type for logging
                     request_type = "vision"
-                    content = await self.process_image_prompt(
-                        username, prompt, message.attachments
+                    # by this point there will only be one attachemnt, otherwise we would have responded to the user
+                    attachment = message.attachments[0]
+                    # process the file prompt and store the response as content
+                    content = await self.process_file_prompt(
+                        username, prompt, attachment
                     )
                 else:
                     # else send chat request to the chat agent and log the response
@@ -76,7 +89,7 @@ class Bot(commands.Bot):
                         request_type=request_type,
                         username=username,
                         runtime=runtime,
-                        request_count=self.orchestrator.get_request_count(),
+                        request_count=self.orchestrator.request_count,
                     ),
                 )
                 # reply to the user with the content
@@ -113,24 +126,19 @@ class Bot(commands.Bot):
         except Exception as e:
             raise BotException(message=str(e), type=type(e).__name__)
 
-    async def process_image_prompt(
-        self, username: str, prompt: str, attachments: List[discord.Attachment]
+    async def process_file_prompt(
+        self, username: str, prompt: str, attachment: discord.Attachment
     ) -> str | Type[BotException]:
         """Processes an image and prompt sent by a user."""
 
         try:
-            # if no attachments or empty list, return
-            if not attachments or len(attachments) == 0:
-                raise ValueError("No image attached.")
+            # if the attachment is null
+            if not attachment:
+                raise ValueError("No file attached.")
 
-            # there should only be one element
-            attachment = attachments[0]
-
-            file = await attachment.to_file()
-            # open as image using PIL
-            image = Image.open(fp=file.fp)
-            # generate the response using the image and text prompt
-            response = self.orchestrator.process_image_prompt(username, prompt, image)
+            response = self.orchestrator.process_image_prompt(
+                username, prompt, attachment
+            )
             return response
         except Exception as e:
             raise BotException(message=str(e), type=type(e).__name__)
@@ -163,11 +171,10 @@ class BotCog(commands.Cog, name="BotCog"):
 
         content = ctx.message.content
         if content:
-            self.bot.orchestrator.set_chat_model(model_name=content)
+            self.bot.orchestrator.set_model(model_name=content)
             await ctx.reply(f"New model set.")
 
-
-    @tasks.loop(hours=6)
+    @tasks.loop(hours=2)
     async def erase_old_chats(self):
         """This method erases the chat info of any chat that has exceeded the ttl (time to live) of the last message"""
         today = datetime.now()
