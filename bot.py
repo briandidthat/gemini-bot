@@ -1,36 +1,24 @@
 from datetime import datetime, timedelta
-from typing import Dict, List, Type
+from typing import Type
+from PIL import Image
 
 import discord
 from discord.ext import commands, tasks
-from PIL import Image
 
-from agent import GeminiAgent, Orchestrator
+from agent import File, GeminiAgent
+from exception import DiscordException, DoneForTheDayException
 from logger import bot_logger
-
-
-class BotException(Exception):
-    """Custom exception class for the discord bot."""
-
-    def __init__(self, message: str, type: str):
-        super().__init__(message)
-        self.message = message
-        self.type = type
-
-    def serialize(self) -> Dict[str, str]:
-        return dict(message=self.message, type=self.type)
 
 
 class Bot(commands.Bot):
     def __init__(
         self,
-        gemini_agent: GeminiAgent,
-        daily_limit: int,
+        agent: GeminiAgent,
         *args,
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
-        self.orchestrator: Orchestrator = Orchestrator(gemini_agent, daily_limit)
+        self.agent = agent
 
     """EVENTS"""
 
@@ -42,24 +30,39 @@ class Bot(commands.Bot):
         """Event handler for when a message is sent in the chat."""
         username = message.author.name
 
-        # if the bot was mentioned in the message and the message was not created by the bot
+        # if the bot was mentioned in the message and the message was not created by the bot itself
         if self.user.mentioned_in(message) and username != self.user.name:
 
             prompt, content, request_type = None, None, None
 
             # if the message contains <@MEMBER_ID> (when the bot is mentioned), split at > and return the rest
             if message.content.startswith("<@"):
+
                 prompt = message.content.split("> ")[1]
             else:  # otherwise it is a reply to a previous message, therefore will not include member Id
                 prompt = message.content
-
             try:
                 start_time = datetime.now()
                 # if the message has attachments, process the image prompt via the vision agent. Will throw exception if not an image
                 if message.attachments:
+                    attachments_length = len(message.attachments)
+                    # if more than one message, reply to user letting them know only one file is accepted at a time
+                    if attachments_length > 1:
+                        await message.reply(
+                            f"Only one file can be processed at a time."
+                        )
+                        bot_logger.error(
+                            "Rejected file prompt due to file count.",
+                            extra=dict(file_count=attachments_length),
+                        )
+                        return
+                    # set the request type for logging
                     request_type = "vision"
-                    content = await self.process_image_prompt(
-                        username, prompt, message.attachments
+                    # by this point there will only be one attachemnt, otherwise we would have responded to the user
+                    attachment = message.attachments[0]
+                    # process the file prompt and store the response as content
+                    content = await self.process_file_prompt(
+                        username, prompt, attachment
                     )
                 else:
                     # else send chat request to the chat agent and log the response
@@ -76,12 +79,20 @@ class Bot(commands.Bot):
                         request_type=request_type,
                         username=username,
                         runtime=runtime,
-                        request_count=self.orchestrator.get_request_count(),
+                        request_count=self.agent.request_count,
                     ),
                 )
                 # reply to the user with the content
                 await message.reply(f"{content}")
-            except BotException as e:
+            except DoneForTheDayException as e:
+                bot_logger.error(
+                    f"The request limit for today has been met.",
+                    extra=dict(
+                        exception=e.serialize(), username=username, prompt=prompt
+                    ),
+                )
+                await message.reply(f"I am done for the day. Check back later.")
+            except DiscordException as e:
                 bot_logger.error(
                     f"An exception occured when making a {request_type} request.",
                     extra=dict(
@@ -96,7 +107,7 @@ class Bot(commands.Bot):
     async def on_member_remove(self, member: discord.Member):
         """Event handler for when a member leaves the server."""
         if not member.bot:
-            self.orchestrator.__gemini_agent.remove_chat(member.name)
+            self.agent.remove_chat(member.name)
             bot_logger.info(
                 f"Removed chat for member that left.", extra=dict(username=member.name)
             )
@@ -105,35 +116,31 @@ class Bot(commands.Bot):
 
     async def process_chat_prompt(
         self, username: str, prompt: str
-    ) -> str | Type[BotException]:
+    ) -> str | Type[DiscordException]:
         """Processes a chat prompt sent by a user."""
         try:
-            response = self.orchestrator.process_chat_prompt(username, prompt)
+            response = self.agent.process_chat_prompt(username, prompt)
             return response
         except Exception as e:
-            raise BotException(message=str(e), type=type(e).__name__)
+            raise DiscordException(message=str(e), type=type(e).__name__)
 
-    async def process_image_prompt(
-        self, username: str, prompt: str, attachments: List[discord.Attachment]
-    ) -> str | Type[BotException]:
+    async def process_file_prompt(
+        self, username: str, prompt: str, attachment: discord.Attachment
+    ) -> str | Type[DiscordException]:
         """Processes an image and prompt sent by a user."""
 
         try:
-            # if no attachments or empty list, return
-            if not attachments or len(attachments) == 0:
-                raise ValueError("No image attached.")
+            # if the attachment is null
+            if not attachment:
+                raise ValueError("No file attached.")
 
-            # there should only be one element
-            attachment = attachments[0]
+            attachment_file = await attachment.to_file()
+            file = File(content=attachment_file, content_type=attachment.content_type)
 
-            file = await attachment.to_file()
-            # open as image using PIL
-            image = Image.open(fp=file.fp)
-            # generate the response using the image and text prompt
-            response = self.orchestrator.process_image_prompt(username, prompt, image)
+            response = await self.agent.process_file_prompt(username, prompt, file)
             return response
         except Exception as e:
-            raise BotException(message=str(e), type=type(e).__name__)
+            raise DiscordException(message=str(e), type=type(e).__name__)
 
 
 class BotCog(commands.Cog, name="BotCog"):
@@ -150,7 +157,7 @@ class BotCog(commands.Cog, name="BotCog"):
         if ctx.author.name != self.bot_owner:
             return
 
-        self.bot.orchestrator.remove_all_chats()
+        self.bot.agent.remove_all_chats()
         await ctx.reply("All chats have been erased.")
 
     # add command to set a new generative model for the agent
@@ -163,15 +170,14 @@ class BotCog(commands.Cog, name="BotCog"):
 
         content = ctx.message.content
         if content:
-            self.bot.orchestrator.set_chat_model(model_name=content)
+            self.bot.agent.set_model(model_name=content)
             await ctx.reply(f"New model set.")
 
-
-    @tasks.loop(hours=6)
+    @tasks.loop(hours=2)
     async def erase_old_chats(self):
         """This method erases the chat info of any chat that has exceeded the ttl (time to live) of the last message"""
         today = datetime.now()
 
         for username, chat_info in self.bot.orchestrator.get_chats().items():
             if today - chat_info.last_message > self.chat_ttl:
-                self.bot.orchestrator.remove_chat(username)
+                self.bot.agent.remove_chat(username)
