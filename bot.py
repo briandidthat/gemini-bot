@@ -1,6 +1,5 @@
 from datetime import datetime, timedelta
 from typing import Type
-from PIL import Image
 
 import discord
 from discord.ext import commands, tasks
@@ -84,6 +83,7 @@ class Bot(commands.Bot):
                 )
                 # reply to the user with the content
                 await message.reply(f"{content}")
+            # handle exceptions for exceeding GeminiAPI request limit
             except DoneForTheDayException as e:
                 bot_logger.error(
                     f"The request limit for today has been met.",
@@ -92,6 +92,7 @@ class Bot(commands.Bot):
                     ),
                 )
                 await message.reply(f"I am done for the day. Check back later.")
+            # handle exceptions for exceeding GeminiAPI request limit
             except DiscordException as e:
                 bot_logger.error(
                     f"An exception occured when making a {request_type} request.",
