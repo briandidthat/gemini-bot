@@ -1,36 +1,13 @@
 from datetime import datetime
 
-from typing import Dict
+from typing import Dict, IO
 from dataclasses import dataclass
 
 import google.generativeai as genai
 
 from logger import gemini_agent_logger
+from models import ChatInfo, File
 from utils import validate_request_limit
-
-
-@dataclass
-class File:
-    content: IO
-    content_type: str
-
-
-@dataclass
-class ChatInfo:
-    """Dataclass to represent chat information for a user."""
-
-    username: str
-    chat: genai.ChatSession
-    creation_time: datetime
-    last_message: datetime
-
-    def serialize(self) -> Dict:
-        return {
-            "username": self.username,
-            "creation_time": self.creation_time,
-            "last_message": self.last_message,
-            "history": len(self.chat.history),
-        }
 
 
 class GeminiAgent:
