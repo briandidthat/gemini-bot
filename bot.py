@@ -4,9 +4,10 @@ from typing import Type
 import discord
 from discord.ext import commands, tasks
 
-from agent import File, GeminiAgent
+from agent import GeminiAgent
 from exception import DiscordException, DoneForTheDayException
 from logger import bot_logger
+from utils import get_file
 
 
 class Bot(commands.Bot):
@@ -36,6 +37,11 @@ class Bot(commands.Bot):
 
             # if the message contains <@MEMBER_ID> (when the bot is mentioned), split at > and return the rest
             if message.content.startswith("<@"):
+                message_array = message.content.split("> ")
+                # if the message array is less than or equal to 1, no prompt was provided
+                if len(message_array) <= 1:
+                    await message.reply("No prompt was provided.")
+                    return
 
                 prompt = message.content.split("> ")[1]
             else:  # otherwise it is a reply to a previous message, therefore will not include member Id
@@ -66,7 +72,7 @@ class Bot(commands.Bot):
                 else:
                     # else send chat request to the chat agent and log the response
                     request_type = "chat"
-                    content = self.process_chat_prompt(username, prompt)
+                    content = await self.process_chat_prompt(username, prompt)
 
                 end_time = datetime.now()
                 # calculate runtime in milliseconds
@@ -134,9 +140,9 @@ class Bot(commands.Bot):
             # if the attachment is null
             if not attachment:
                 raise ValueError("No file attached.")
-
+            print(attachment.content_type)
             attachment_file = await attachment.to_file()
-            file = File(content=attachment_file, content_type=attachment.content_type)
+            file = get_file(attachment_file, attachment.content_type)
 
             response = await self.agent.process_file_prompt(username, prompt, file)
             return response

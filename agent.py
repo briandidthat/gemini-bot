@@ -130,7 +130,9 @@ class GeminiAgent:
         validate_request_limit(self.__daily_limit, self.__request_count)
 
         # generate the response using the file and text prompt
-        response = self.__model.generate_content([file, prompt])
+        response = self.__model.generate_content([file.content, prompt])
+        # close the file since we dont need it any more
+        file.content.close()
         gemini_agent_logger.info(
             "Content generated using image and text prompt.",
             extra=dict(
