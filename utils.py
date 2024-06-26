@@ -29,7 +29,12 @@ def validate_request_limit(daily_limit: int, request_count: int) -> None:
         )
 
 
-def get_file(file: IO, content_type: str) -> File | Type[FileProcessingException]:
+def get_file(content: IO, content_type: str) -> File | Type[FileProcessingException]:
+    """
+    Create file instance from content and content type. Only supporting images for now.
+    Will throw FileProcessingException if the filetype is not supported.
+    TODO: handle other file types
+    """
     is_supported = ALLOWED_FILE_TYPES.get(content_type, False)
     if not is_supported:
         raise FileProcessingException(
@@ -37,14 +42,15 @@ def get_file(file: IO, content_type: str) -> File | Type[FileProcessingException
         )
 
     match content_type:
-        case "image/jpeg", "image/jpg", "image/png":
+        case "image/jpeg" | "image/jpg" | "image/png":
             try:
-                image = Image.open(fp=file.fp)
-                return File(image, content_type)
+                image = Image.open(fp=content.fp)
+                file = File(image, content_type)
+                return file
             except Exception as e:
                 raise FileProcessingException(message=str(e), type=type(e).__name__)
 
         case _:
             raise FileProcessingException(
-                "Invalid file type", type="FileProcessingException"
+                f"Invalid file type. {content_type}", type="FileProcessingException"
             )
