@@ -28,5 +28,6 @@ class FileProcessingException(BaseException):
 
 
 class DoneForTheDayException(BaseException):
+    """Custom Exception for when the GeminiAPI request limit has been exceeded"""
 
     pass
