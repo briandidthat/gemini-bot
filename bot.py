@@ -1,24 +1,26 @@
 from datetime import datetime, timedelta
 from typing import Type
-from PIL import Image
 
 import discord
 from discord.ext import commands, tasks
 
-from agent import File, GeminiAgent
+from agent import GeminiAgent
 from exception import DiscordException, DoneForTheDayException
 from logger import bot_logger
+from utils import get_file
 
 
 class Bot(commands.Bot):
     def __init__(
         self,
+        owner: str,
         agent: GeminiAgent,
         *args,
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
-        self.agent = agent
+        self.__owner = owner
+        self.__agent = agent
 
     """EVENTS"""
 
@@ -37,6 +39,11 @@ class Bot(commands.Bot):
 
             # if the message contains <@MEMBER_ID> (when the bot is mentioned), split at > and return the rest
             if message.content.startswith("<@"):
+                message_array = message.content.split("> ")
+                # if the message array is less than or equal to 1, no prompt was provided
+                if len(message_array) <= 1:
+                    await message.reply("No prompt was provided.")
+                    return
 
                 prompt = message.content.split("> ")[1]
             else:  # otherwise it is a reply to a previous message, therefore will not include member Id
@@ -67,7 +74,7 @@ class Bot(commands.Bot):
                 else:
                     # else send chat request to the chat agent and log the response
                     request_type = "chat"
-                    content = self.process_chat_prompt(username, prompt)
+                    content = await self.process_chat_prompt(username, prompt)
 
                 end_time = datetime.now()
                 # calculate runtime in milliseconds
@@ -84,6 +91,7 @@ class Bot(commands.Bot):
                 )
                 # reply to the user with the content
                 await message.reply(f"{content}")
+            # handle exceptions for exceeding GeminiAPI request limit
             except DoneForTheDayException as e:
                 bot_logger.error(
                     f"The request limit for today has been met.",
@@ -92,6 +100,7 @@ class Bot(commands.Bot):
                     ),
                 )
                 await message.reply(f"I am done for the day. Check back later.")
+            # handle exceptions for exceeding GeminiAPI request limit
             except DiscordException as e:
                 bot_logger.error(
                     f"An exception occured when making a {request_type} request.",
@@ -114,6 +123,14 @@ class Bot(commands.Bot):
 
     """METHODS"""
 
+    @property
+    def owner(self):
+        return self.__owner
+
+    @property
+    def agent(self):
+        return self.__agent
+
     async def process_chat_prompt(
         self, username: str, prompt: str
     ) -> str | Type[DiscordException]:
@@ -135,9 +152,11 @@ class Bot(commands.Bot):
                 raise ValueError("No file attached.")
 
             attachment_file = await attachment.to_file()
-            file = File(content=attachment_file, content_type=attachment.content_type)
+            file = get_file(attachment_file, attachment.content_type)
 
             response = await self.agent.process_file_prompt(username, prompt, file)
+            # close the file since we have gotten a response from gemini API
+            file.close()
             return response
         except Exception as e:
             raise DiscordException(message=str(e), type=type(e).__name__)
@@ -146,15 +165,14 @@ class Bot(commands.Bot):
 class BotCog(commands.Cog, name="BotCog"):
     """Cog implementation to run commands that are related to the Bot class. Will also run a background task to erase old chats."""
 
-    def __init__(self, bot: Bot, bot_owner: str, chat_ttl: timedelta):
+    def __init__(self, bot: Bot, chat_ttl: timedelta):
         self.bot = bot
-        self.bot_owner = bot_owner
         self.chat_ttl = chat_ttl
 
     # add command to erase all chats manually. will only be accepted by the bot owner
     @commands.command(name="erase_chats", help="Erase all chats from the chat agent.")
     async def erase_chats(self, ctx: commands.Context):
-        if ctx.author.name != self.bot_owner:
+        if ctx.author.name != self.bot.owner:
             return
 
         self.bot.agent.remove_all_chats()
@@ -165,7 +183,7 @@ class BotCog(commands.Cog, name="BotCog"):
     async def set_chat_model(self, ctx: commands.Context):
         """Command to set a new generative model for the gemini agent."""
         user = ctx.author.name
-        if user != self.bot_owner:
+        if user != self.bot.owner:
             return
 
         content = ctx.message.content

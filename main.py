@@ -9,7 +9,7 @@ from bot import Bot, BotCog
 
 
 # grab api keys from environment
-BOT_OWNER = os.getenv("BOT_OWNER")
+OWNER = os.getenv("BOT_OWNER")
 CHAT_TTL = float(os.getenv("CHAT_TTL"))
 DAILY_LIMIT = int(os.getenv("DAILY_LIMIT"))
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
@@ -20,7 +20,7 @@ genai.configure(api_key=GOOGLE_API_KEY)
 
 # initialize gemini agent instance for content generation
 gemini_agent = GeminiAgent(
-    model_name="gemini-1.5-flash-latest",
+    model_name="gemini-1.5-flash-latest", daily_limit=DAILY_LIMIT
 )
 
 # create intents object for discord bot initialization
@@ -28,9 +28,9 @@ intents = discord.Intents.default()
 intents.message_content = True
 
 # create bot instance
-bot = Bot(gemini_agent, DAILY_LIMIT, command_prefix="$", intents=intents)
+bot = Bot(OWNER, gemini_agent, command_prefix="$", intents=intents)
 # initialize BogCog instance for bot commands and scheduled tasks
-bot_cog = BotCog(bot, BOT_OWNER, CHAT_TTL)
+bot_cog = BotCog(bot, CHAT_TTL)
 
 
 # register the cog with the bot
