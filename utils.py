@@ -44,8 +44,7 @@ def get_file(content: IO, content_type: str) -> File | Type[FileProcessingExcept
     match content_type:
         case "image/jpeg" | "image/jpg" | "image/png":
             try:
-                image = Image.open(fp=content.fp)
-                file = File(image, content_type)
+                file: File = process_image(content.name, content, content_type)
                 return file
             except Exception as e:
                 raise FileProcessingException(message=str(e), type=type(e).__name__)
@@ -54,3 +53,8 @@ def get_file(content: IO, content_type: str) -> File | Type[FileProcessingExcept
             raise FileProcessingException(
                 f"Invalid file type. {content_type}", type="FileProcessingException"
             )
+
+
+def process_image(file_name: str, content: IO, content_type: str) -> File:
+    image = Image.open(fp=content.fp)
+    return File(file_name, image, content_type)

@@ -13,12 +13,14 @@ from utils import get_file
 class Bot(commands.Bot):
     def __init__(
         self,
+        owner: str,
         agent: GeminiAgent,
         *args,
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
-        self.agent = agent
+        self.__owner = owner
+        self.__agent = agent
 
     """EVENTS"""
 
@@ -121,6 +123,14 @@ class Bot(commands.Bot):
 
     """METHODS"""
 
+    @property
+    def owner(self):
+        return self.__owner
+
+    @property
+    def agent(self):
+        return self.__agent
+
     async def process_chat_prompt(
         self, username: str, prompt: str
     ) -> str | Type[DiscordException]:
@@ -140,11 +150,13 @@ class Bot(commands.Bot):
             # if the attachment is null
             if not attachment:
                 raise ValueError("No file attached.")
-            print(attachment.content_type)
+
             attachment_file = await attachment.to_file()
             file = get_file(attachment_file, attachment.content_type)
 
             response = await self.agent.process_file_prompt(username, prompt, file)
+            # close the file since we have gotten a response from gemini API
+            file.close()
             return response
         except Exception as e:
             raise DiscordException(message=str(e), type=type(e).__name__)
@@ -153,15 +165,14 @@ class Bot(commands.Bot):
 class BotCog(commands.Cog, name="BotCog"):
     """Cog implementation to run commands that are related to the Bot class. Will also run a background task to erase old chats."""
 
-    def __init__(self, bot: Bot, bot_owner: str, chat_ttl: timedelta):
+    def __init__(self, bot: Bot, chat_ttl: timedelta):
         self.bot = bot
-        self.bot_owner = bot_owner
         self.chat_ttl = chat_ttl
 
     # add command to erase all chats manually. will only be accepted by the bot owner
     @commands.command(name="erase_chats", help="Erase all chats from the chat agent.")
     async def erase_chats(self, ctx: commands.Context):
-        if ctx.author.name != self.bot_owner:
+        if ctx.author.name != self.bot.owner:
             return
 
         self.bot.agent.remove_all_chats()
@@ -172,7 +183,7 @@ class BotCog(commands.Cog, name="BotCog"):
     async def set_chat_model(self, ctx: commands.Context):
         """Command to set a new generative model for the gemini agent."""
         user = ctx.author.name
-        if user != self.bot_owner:
+        if user != self.bot.owner:
             return
 
         content = ctx.message.content
