@@ -7,7 +7,7 @@ from discord.ext import commands, tasks
 from agent import GeminiAgent
 from exception import DiscordException, DoneForTheDayException
 from logger import bot_logger
-from utils import get_file
+from utils import get_file, get_time_delta
 
 
 class Bot(commands.Bot):
@@ -136,7 +136,7 @@ class Bot(commands.Bot):
     ) -> str | Type[DiscordException]:
         """Processes a chat prompt sent by a user."""
         try:
-            response = self.agent.process_chat_prompt(username, prompt)
+            response = await self.agent.process_chat_prompt(username, prompt)
             return response
         except Exception as e:
             raise DiscordException(message=str(e), type=type(e).__name__)
@@ -147,10 +147,6 @@ class Bot(commands.Bot):
         """Processes an image and prompt sent by a user."""
 
         try:
-            # if the attachment is null
-            if not attachment:
-                raise ValueError("No file attached.")
-
             attachment_file = await attachment.to_file()
             file = get_file(attachment_file, attachment.content_type)
 
@@ -165,7 +161,7 @@ class Bot(commands.Bot):
 class BotCog(commands.Cog, name="BotCog"):
     """Cog implementation to run commands that are related to the Bot class. Will also run a background task to erase old chats."""
 
-    def __init__(self, bot: Bot, chat_ttl: timedelta):
+    def __init__(self, bot: Bot, chat_ttl: int):
         self.bot = bot
         self.chat_ttl = chat_ttl
 
@@ -193,9 +189,10 @@ class BotCog(commands.Cog, name="BotCog"):
 
     @tasks.loop(hours=2)
     async def erase_old_chats(self):
-        """This method erases the chat info of any chat that has exceeded the ttl (time to live) of the last message"""
-        today = datetime.now()
+        """This method erases the chat of any chat that has exceeded the ttl (time to live) of the last message"""
 
-        for username, chat_info in self.bot.orchestrator.get_chats().items():
-            if today - chat_info.last_message > self.chat_ttl:
+        for username, chat in self.bot.agent.chats.items():
+            now = datetime.now()
+            duration = get_time_delta(chat.last_message, now)
+            if duration > self.chat_ttl:
                 self.bot.agent.remove_chat(username)
