@@ -1,4 +1,5 @@
-from typing import IO, Dict, Type
+from datetime import datetime, timedelta
+from typing import IO, Dict, Optional, Type
 
 
 from PIL import Image
@@ -21,7 +22,7 @@ ALLOWED_FILE_TYPES: Dict[str, bool] = {
 
 
 def validate_request_limit(daily_limit: int, request_count: int) -> None:
-    """Will throw ValueError if the request limit will be exceeded."""
+    """Will throw DoneForTheDayException if the request limit will be exceeded."""
     less_than_limit = request_count + 1 < daily_limit
     if not less_than_limit:
         raise DoneForTheDayException(
@@ -44,17 +45,40 @@ def get_file(content: IO, content_type: str) -> File | Type[FileProcessingExcept
     match content_type:
         case "image/jpeg" | "image/jpg" | "image/png":
             try:
-                file: File = process_image(content.name, content, content_type)
+                image = Image.open(fp=content.fp)
+                return File(content.name, image, content_type)
+            except Exception as e:
+                raise FileProcessingException(message=str(e), type=type(e).__name__)
+        case "audio/mp3" | "audio/mp4":
+            try:
+                file: File = None
                 return file
             except Exception as e:
                 raise FileProcessingException(message=str(e), type=type(e).__name__)
-
         case _:
             raise FileProcessingException(
                 f"Invalid file type. {content_type}", type="FileProcessingException"
             )
 
 
-def process_image(file_name: str, content: IO, content_type: str) -> File:
-    image = Image.open(fp=content.fp)
-    return File(file_name, image, content_type)
+def get_time_delta(start: Optional[datetime], end: Optional[datetime]) -> Optional[int]:
+    """Calculates the difference between two datetime objects in hours.
+
+    Args:
+        start: The first datetime object.
+        end: The second datetime object.
+
+    Returns:
+        The difference in hours as an integer
+    """
+    if end is None or start is None:
+        return None
+
+    # Ensure end is always the later datetime
+    if end < start:
+        end, start = start, end
+
+    delta: timedelta = end - start  # Calculate the timedelta
+    total_seconds: int = int(delta.total_seconds())  # Convert to total seconds
+    total_hours: int = int(round(total_seconds / 3600, 2))  # Convert to hours and round
+    return total_hours

@@ -10,7 +10,9 @@ from bot import Bot, BotCog
 
 # grab api keys from environment
 OWNER = os.getenv("BOT_OWNER")
-CHAT_TTL = float(os.getenv("CHAT_TTL"))
+# how long the chat will live since last message
+CHAT_TTL = int(os.getenv("CHAT_TTL"))
+# daily request limit
 DAILY_LIMIT = int(os.getenv("DAILY_LIMIT"))
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")

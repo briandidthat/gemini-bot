@@ -1,6 +1,5 @@
-from dataclasses import dataclass
 from datetime import datetime
-from typing import IO, Dict
+from typing import Dict
 
 import google.generativeai as genai
 
@@ -85,7 +84,7 @@ class GeminiAgent:
             "All chats have been erased.", extra=dict(chats_deleted=chats)
         )
 
-    def process_chat_prompt(self, username: str, prompt: str) -> str:
+    async def process_chat_prompt(self, username: str, prompt: str) -> str:
         """Sends a chat interaction for a specific user.\n
         Args:
             username: The name of the user.
@@ -146,7 +145,7 @@ class GeminiAgent:
         )
         return response.text
 
-    def upload_file(file_name: str, content_type: str) -> File:
+    def upload_file(self, file_name: str, content_type: str):
         file = genai.upload_file(path=file_name)
         return File(file_name, file, content_type)
 
