@@ -1,23 +1,29 @@
 from datetime import datetime, timedelta
 from typing import IO, Dict, Optional, Type
 
-
 from PIL import Image
 
 from agent import File
 from exception import DoneForTheDayException, FileProcessingException
 
-
-# Will definitely be changing to True, but WIP
 ALLOWED_FILE_TYPES: Dict[str, bool] = {
     "application/pdf": False,
     "text/plain; charset=utf-8": True,
     "image/jpeg": True,
     "image/jpg": True,
     "image/png": True,
-    "audio/mp3": False,
-    "audio/mp4": False,
-    "video/quicktime": False,
+    "audio/mp3": True,
+    "audio/mp4": True,
+    "video/quicktime": True,
+    "video/mp4": True,
+    "video/mpeg": True,
+    "video/mov": True,
+    "video/avi": True,
+    "video/x-flv": True,
+    "video/mpg": True,
+    "video/webm": True,
+    "video/wmv": True,
+    "video/3gpp": True,
 }
 
 
@@ -30,11 +36,19 @@ def validate_request_limit(daily_limit: int, request_count: int) -> None:
         )
 
 
-def get_file(content: IO, content_type: str) -> File | Type[FileProcessingException]:
-    """
-    Create file instance from content and content type. Only supporting images for now.
+def get_file(
+    filename: str, content: IO, content_type: str
+) -> File | Type[FileProcessingException]:
+    """Create file instance from content and content type.
     Will throw FileProcessingException if the filetype is not supported.
     TODO: handle other file types
+
+    Args:
+        content: The file contents.
+        content_type: The filetype of the file.
+
+    Returns:
+        The difference in hours as an integer
     """
     is_supported = ALLOWED_FILE_TYPES.get(content_type, False)
     if not is_supported:
@@ -46,10 +60,26 @@ def get_file(content: IO, content_type: str) -> File | Type[FileProcessingExcept
         case "image/jpeg" | "image/jpg" | "image/png":
             try:
                 image = Image.open(fp=content.fp)
-                return File(content.name, image, content_type)
+                return File(filename, image, content_type)
             except Exception as e:
                 raise FileProcessingException(message=str(e), type=type(e).__name__)
         case "audio/mp3" | "audio/mp4":
+            try:
+                file: File = None
+                return file
+            except Exception as e:
+                raise FileProcessingException(message=str(e), type=type(e).__name__)
+        case (
+            "video/mp4"
+            | "video/mpeg"
+            | "video/mov"
+            | "video/avi"
+            | "video/x-flv"
+            | "video/mpg"
+            | "video/webm"
+            | "video/wmv"
+            | "video/3gpp"
+        ):
             try:
                 file: File = None
                 return file
@@ -67,7 +97,6 @@ def get_time_delta(start: Optional[datetime], end: Optional[datetime]) -> Option
     Args:
         start: The first datetime object.
         end: The second datetime object.
-
     Returns:
         The difference in hours as an integer
     """
