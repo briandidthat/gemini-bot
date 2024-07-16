@@ -1,6 +1,5 @@
-from dataclasses import dataclass
 from datetime import datetime
-from typing import IO, Dict
+from typing import Dict
 
 import google.generativeai as genai
 
@@ -13,8 +12,8 @@ class GeminiAgent:
     """Agent class to handle chat interactions with the generative model.\n
     The model must be multimodal in order to handle all requests.\n
     Params:
-        - model_name: str
-        - daily_limit: int
+    - model_name: str
+    - daily_limit: int
     """
 
     def __init__(self, model_name: str, daily_limit) -> None:
@@ -85,7 +84,7 @@ class GeminiAgent:
             "All chats have been erased.", extra=dict(chats_deleted=chats)
         )
 
-    def process_chat_prompt(self, username: str, prompt: str) -> str:
+    async def process_chat_prompt(self, username: str, prompt: str) -> str:
         """Sends a chat interaction for a specific user.\n
         Args:
             username: The name of the user.
@@ -100,17 +99,17 @@ class GeminiAgent:
         # If chat is None, then the user has no chat history, so we will create a new chat
         if chat is None:
             # Start a new chat if no chat history exists for the user
-            chat = self.model.start_chat(history=[])
+            chat = self.__model.start_chat(history=[])
             chat = Chat(username, chat, datetime.now(), None)
             self.store_chat(chat)
 
-        response = chat.session.send_message(prompt)
+        response = await chat.session.send_message_async(prompt)
         # set the last message time to now
         chat.last_message = datetime.now()
         # log the chat message sent
         gemini_agent_logger.info(
             "Chat message sent.",
-            extra=dict(username=username, prompt=prompt, chat_info=chat.serialize()),
+            extra=dict(username=username, prompt=prompt, chat=chat.serialize()),
         )
         # increment request count
         self.increment_request_count()
@@ -133,20 +132,21 @@ class GeminiAgent:
         validate_request_limit(self.daily_limit, self.request_count)
 
         # generate the response using the file and text prompt
-        response = self.__model.generate_content([file.content, prompt])
+        response = await self.__model.generate_content_async([file.content, prompt])
         # close the file since we dont need it any more
         file.close()
         gemini_agent_logger.info(
-            "Content generated using image and text prompt.",
+            "Content generated using file and text prompt.",
             extra=dict(
                 username=username,
                 prompt=prompt,
-                response_length=len(response.text),
+                filename=file.name,
+                responseLength=len(response.text),
             ),
         )
         return response.text
 
-    def upload_file(file_name: str, content_type: str) -> File:
+    def upload_file(self, file_name: str, content_type: str):
         file = genai.upload_file(path=file_name)
         return File(file_name, file, content_type)
 

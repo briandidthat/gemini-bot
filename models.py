@@ -1,12 +1,14 @@
-import datetime
+from datetime import datetime
 from dataclasses import dataclass
 from typing import IO, Dict
 
-from google.generativeai import ChatSession
+import google.generativeai as genai
 
 
 @dataclass
 class File:
+    """Model to represent a file"""
+
     name: str
     content: IO
     content_type: str
@@ -20,10 +22,10 @@ class File:
 
 @dataclass
 class Chat:
-    """Dataclass to represent chat information for a user."""
+    """Model to  represent chat information for a user."""
 
     username: str
-    session: ChatSession
+    session: genai.ChatSession
     creation_time: datetime
     last_message: datetime
 

@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Type
 
 import discord
@@ -7,7 +7,7 @@ from discord.ext import commands, tasks
 from agent import GeminiAgent
 from exception import DiscordException, DoneForTheDayException
 from logger import bot_logger
-from utils import get_file
+from utils import get_file, get_time_delta
 
 
 class Bot(commands.Bot):
@@ -45,9 +45,16 @@ class Bot(commands.Bot):
                     await message.reply("No prompt was provided.")
                     return
 
-                prompt = message.content.split("> ")[1]
+                prompt = message_array[1]
             else:  # otherwise it is a reply to a previous message, therefore will not include member Id
                 prompt = message.content
+
+            # ensure that there is at minimum 1 character in the prompt (to avoid wasting tokens)
+            if not prompt or len(prompt) < 1:
+                # reply to the user with the error message
+                await message.reply("Invalid prompt")
+                return
+
             try:
                 start_time = datetime.now()
                 # if the message has attachments, process the image prompt via the vision agent. Will throw exception if not an image
@@ -83,10 +90,10 @@ class Bot(commands.Bot):
                 bot_logger.info(
                     "Processed content request.",
                     extra=dict(
-                        request_type=request_type,
+                        requestType=request_type,
                         username=username,
                         runtime=runtime,
-                        request_count=self.agent.request_count,
+                        requestCount=self.agent.request_count,
                     ),
                 )
                 # reply to the user with the content
@@ -136,7 +143,7 @@ class Bot(commands.Bot):
     ) -> str | Type[DiscordException]:
         """Processes a chat prompt sent by a user."""
         try:
-            response = self.agent.process_chat_prompt(username, prompt)
+            response = await self.agent.process_chat_prompt(username, prompt)
             return response
         except Exception as e:
             raise DiscordException(message=str(e), type=type(e).__name__)
@@ -147,12 +154,10 @@ class Bot(commands.Bot):
         """Processes an image and prompt sent by a user."""
 
         try:
-            # if the attachment is null
-            if not attachment:
-                raise ValueError("No file attached.")
-
             attachment_file = await attachment.to_file()
-            file = get_file(attachment_file, attachment.content_type)
+            file = get_file(
+                attachment.filename, attachment_file, attachment.content_type
+            )
 
             response = await self.agent.process_file_prompt(username, prompt, file)
             # close the file since we have gotten a response from gemini API
@@ -165,7 +170,7 @@ class Bot(commands.Bot):
 class BotCog(commands.Cog, name="BotCog"):
     """Cog implementation to run commands that are related to the Bot class. Will also run a background task to erase old chats."""
 
-    def __init__(self, bot: Bot, chat_ttl: timedelta):
+    def __init__(self, bot: Bot, chat_ttl: int):
         self.bot = bot
         self.chat_ttl = chat_ttl
 
@@ -193,9 +198,9 @@ class BotCog(commands.Cog, name="BotCog"):
 
     @tasks.loop(hours=2)
     async def erase_old_chats(self):
-        """This method erases the chat info of any chat that has exceeded the ttl (time to live) of the last message"""
-        today = datetime.now()
+        """This method erases the chat of any chat that has exceeded the ttl (time to live) of the last message"""
 
-        for username, chat_info in self.bot.orchestrator.get_chats().items():
-            if today - chat_info.last_message > self.chat_ttl:
+        for username, chat in self.bot.agent.chats.items():
+            duration = get_time_delta(chat.last_message, datetime.now())
+            if duration > self.chat_ttl:
                 self.bot.agent.remove_chat(username)
