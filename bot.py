@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Type
 
 import discord
@@ -45,9 +45,16 @@ class Bot(commands.Bot):
                     await message.reply("No prompt was provided.")
                     return
 
-                prompt = message.content.split("> ")[1]
+                prompt = message_array[1]
             else:  # otherwise it is a reply to a previous message, therefore will not include member Id
                 prompt = message.content
+
+            # ensure that there is at minimum 1 character in the prompt (to avoid wasting tokens)
+            if not prompt or len(prompt) < 1:
+                # reply to the user with the error message
+                await message.reply("Invalid prompt")
+                return
+
             try:
                 start_time = datetime.now()
                 # if the message has attachments, process the image prompt via the vision agent. Will throw exception if not an image
@@ -83,10 +90,10 @@ class Bot(commands.Bot):
                 bot_logger.info(
                     "Processed content request.",
                     extra=dict(
-                        request_type=request_type,
+                        requestType=request_type,
                         username=username,
                         runtime=runtime,
-                        request_count=self.agent.request_count,
+                        requestCount=self.agent.request_count,
                     ),
                 )
                 # reply to the user with the content
@@ -148,7 +155,9 @@ class Bot(commands.Bot):
 
         try:
             attachment_file = await attachment.to_file()
-            file = get_file(attachment_file, attachment.content_type)
+            file = get_file(
+                attachment.filename, attachment_file, attachment.content_type
+            )
 
             response = await self.agent.process_file_prompt(username, prompt, file)
             # close the file since we have gotten a response from gemini API
@@ -192,7 +201,6 @@ class BotCog(commands.Cog, name="BotCog"):
         """This method erases the chat of any chat that has exceeded the ttl (time to live) of the last message"""
 
         for username, chat in self.bot.agent.chats.items():
-            now = datetime.now()
-            duration = get_time_delta(chat.last_message, now)
+            duration = get_time_delta(chat.last_message, datetime.now())
             if duration > self.chat_ttl:
                 self.bot.agent.remove_chat(username)

@@ -33,15 +33,9 @@ intents.message_content = True
 bot = Bot(OWNER, gemini_agent, command_prefix="$", intents=intents)
 # initialize BogCog instance for bot commands and scheduled tasks
 bot_cog = BotCog(bot, CHAT_TTL)
-
-
-# register the cog with the bot
-async def register():
-    await bot.add_cog(bot_cog)
-
+# register the cog
+asyncio.run(bot.add_cog(bot_cog))
 
 if __name__ == "__main__":
-    # run the coroutine to register the cog
-    asyncio.run(register())
     # run the bot
     bot.run(token=DISCORD_TOKEN)
