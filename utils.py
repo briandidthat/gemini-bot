@@ -27,15 +27,6 @@ ALLOWED_FILE_TYPES: Dict[str, bool] = {
 }
 
 
-def validate_request_limit(daily_limit: int, request_count: int) -> None:
-    """Will throw DoneForTheDayException if the request limit will be exceeded."""
-    less_than_limit = request_count + 1 < daily_limit
-    if not less_than_limit:
-        raise DoneForTheDayException(
-            message="Daily limit has been reached.", type=type(ValueError).__name__
-        )
-
-
 def get_file(
     filename: str, content: IO, content_type: str
 ) -> File | Type[FileProcessingException]:
@@ -63,28 +54,28 @@ def get_file(
                 return File(filename, image, content_type)
             except Exception as e:
                 raise FileProcessingException(message=str(e), type=type(e).__name__)
-        case "audio/mp3" | "audio/mp4":
-            try:
-                file: File = None
-                return file
-            except Exception as e:
-                raise FileProcessingException(message=str(e), type=type(e).__name__)
-        case (
-            "video/mp4"
-            | "video/mpeg"
-            | "video/mov"
-            | "video/avi"
-            | "video/x-flv"
-            | "video/mpg"
-            | "video/webm"
-            | "video/wmv"
-            | "video/3gpp"
-        ):
-            try:
-                file: File = None
-                return file
-            except Exception as e:
-                raise FileProcessingException(message=str(e), type=type(e).__name__)
+        # case "audio/mp3" | "audio/mp4":
+        #     try:
+        #         file: File = None
+        #         return file
+        #     except Exception as e:
+        #         raise FileProcessingException(message=str(e), type=type(e).__name__)
+        # case (
+        #     "video/mp4"
+        #     | "video/mpeg"
+        #     | "video/mov"
+        #     | "video/avi"
+        #     | "video/x-flv"
+        #     | "video/mpg"
+        #     | "video/webm"
+        #     | "video/wmv"
+        #     | "video/3gpp"
+        # ):
+        #     try:
+        #         file: File = None
+        #         return file
+        #     except Exception as e:
+        #         raise FileProcessingException(message=str(e), type=type(e).__name__)
         case _:
             raise FileProcessingException(
                 f"Invalid file type. {content_type}", type="FileProcessingException"
