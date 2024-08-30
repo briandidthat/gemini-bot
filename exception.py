@@ -24,6 +24,7 @@ class GeminiException(BaseException):
 
 
 class FileProcessingException(BaseException):
+    """Custom exception for when the file is unable to be processed"""
     pass
 
 

@@ -131,11 +131,11 @@ class Bot(commands.Bot):
     """METHODS"""
 
     @property
-    def owner(self):
+    def owner(self) -> str:
         return self.__owner
 
     @property
-    def agent(self):
+    def agent(self) -> GeminiAgent:
         return self.__agent
 
     async def process_chat_prompt(

@@ -4,7 +4,7 @@ from typing import IO, Dict, Optional, Type
 from PIL import Image
 
 from agent import File
-from exception import DoneForTheDayException, FileProcessingException
+from exception import FileProcessingException
 
 ALLOWED_FILE_TYPES: Dict[str, bool] = {
     "application/pdf": False,
@@ -32,7 +32,7 @@ def get_file(
 ) -> File | Type[FileProcessingException]:
     """Create file instance from content and content type.
     Will throw FileProcessingException if the filetype is not supported.
-    TODO: handle other file types
+    TODO: handle other file types. Only handles images for now
 
     Args:
         content: The file contents.
@@ -54,28 +54,6 @@ def get_file(
                 return File(filename, image, content_type)
             except Exception as e:
                 raise FileProcessingException(message=str(e), type=type(e).__name__)
-        # case "audio/mp3" | "audio/mp4":
-        #     try:
-        #         file: File = None
-        #         return file
-        #     except Exception as e:
-        #         raise FileProcessingException(message=str(e), type=type(e).__name__)
-        # case (
-        #     "video/mp4"
-        #     | "video/mpeg"
-        #     | "video/mov"
-        #     | "video/avi"
-        #     | "video/x-flv"
-        #     | "video/mpg"
-        #     | "video/webm"
-        #     | "video/wmv"
-        #     | "video/3gpp"
-        # ):
-        #     try:
-        #         file: File = None
-        #         return file
-        #     except Exception as e:
-        #         raise FileProcessingException(message=str(e), type=type(e).__name__)
         case _:
             raise FileProcessingException(
                 f"Invalid file type. {content_type}", type="FileProcessingException"
@@ -83,7 +61,7 @@ def get_file(
 
 
 def get_time_delta(start: Optional[datetime], end: Optional[datetime]) -> Optional[int]:
-    """Calculates the difference between two datetime objects in hours.
+    """Calculates the difference between two datetime objects in hours. Will round to integer
 
     Args:
         start: The first datetime object.
