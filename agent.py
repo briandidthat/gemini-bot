@@ -9,11 +9,13 @@ from models import Chat, File
 
 
 class GeminiAgent:
-    """Agent class to handle chat interactions with the generative model.\n
-    The model must be multimodal in order to handle all requests.\n
-    Params:
-    - model_name: str
-    - daily_limit: int
+    """
+    This class represents an agent responsible for managing chat interactions with a generative model.
+    The generative model must support multimodal capabilities to handle various types of requests.
+
+    Parameters:
+    model_name (str): The identifier for the generative model to be utilized.
+    daily_limit (int): The maximum number of requests allowed per day.
     """
 
     def __init__(self, model_name: str, daily_limit) -> None:

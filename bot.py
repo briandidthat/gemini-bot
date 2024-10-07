@@ -29,6 +29,23 @@ class Bot(commands.Bot):
         bot_logger.info("Gemini bot is online")
 
     async def on_message(self, message: discord.Message) -> None:
+        """
+        Event handler for when a message is sent in the chat.
+
+        This function processes messages sent in the chat and performs actions based on whether the bot is mentioned.
+        If the bot is mentioned, it processes the message content or attachments and replies with the appropriate response.
+        If the bot is not mentioned, it continues processing commands as expected by the framework.
+
+        Args:
+            message (discord.Message): The message object that was sent in the chat.
+
+        Returns:
+            None
+
+        Raises:
+            DoneForTheDayException: If the request limit for the day has been met.
+            DiscordException: If an exception occurs when making a request to the GeminiAPI.
+        """
         """Event handler for when a message is sent in the chat."""
         username = message.author.name
 
@@ -66,7 +83,7 @@ class Bot(commands.Bot):
                             f"Only one file can be processed at a time."
                         )
                         bot_logger.error(
-                            "Rejected file prompt due to file count.",
+                            "Only one file can be processed at a time.",
                             extra=dict(file_count=attachments_length),
                         )
                         return
@@ -131,11 +148,11 @@ class Bot(commands.Bot):
     """METHODS"""
 
     @property
-    def owner(self):
+    def owner(self) -> str:
         return self.__owner
 
     @property
-    def agent(self):
+    def agent(self) -> GeminiAgent:
         return self.__agent
 
     async def process_chat_prompt(
