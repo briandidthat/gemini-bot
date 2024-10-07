@@ -150,6 +150,10 @@ class Bot(commands.Bot):
     @property
     def owner(self) -> str:
         return self.__owner
+    
+    @owner.setter
+    def set_owner(self, owner: str):
+        self.__owner = owner
 
     @property
     def agent(self) -> GeminiAgent:
@@ -190,6 +194,15 @@ class BotCog(commands.Cog, name="BotCog"):
     def __init__(self, bot: Bot, chat_ttl: int):
         self.bot = bot
         self.chat_ttl = chat_ttl
+
+    @commands.command(name="set-owner", help="Set the owner of the bot.")
+    async def set_owner(self, ctx: commands.Context):
+        """Command to set the owner of the bot."""
+        user = ctx.author.name
+        if user != self.bot.owner:
+            return
+        
+        self.bot.set_owner(user)
 
     # add command to erase all chats manually. will only be accepted by the bot owner
     @commands.command(name="erase_chats", help="Erase all chats from the chat agent.")

@@ -3,7 +3,7 @@ from typing import Dict
 
 import google.generativeai as genai
 
-from exception import DoneForTheDayException, GeminiException
+from exception import DoneForTheDayException
 from logger import gemini_agent_logger
 from models import Chat, File
 
