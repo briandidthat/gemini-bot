@@ -33,4 +33,5 @@ typing_extensions==4.11.0
 uritemplate==4.1.1
 urllib3==2.2.1
 yarl==1.9.4
+python-dotenv==1.0.1
 python-json-logger==2.0.7
