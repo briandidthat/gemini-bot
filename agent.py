@@ -97,6 +97,12 @@ class GeminiAgent:
             "A new model has been set.", extra=dict(model_name=model_name)
         )
 
+    def add_model(self, model_name: str) -> None:
+        self.__accepted_models.append(model_name)
+        gemini_agent_logger.info(
+            "A new model has been added.", extra=dict(model_name=model_name)
+        )
+
     def store_chat(self, chat: Chat):
         if chat:
             self.chats[chat.username] = chat

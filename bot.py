@@ -150,7 +150,7 @@ class Bot(commands.Bot):
     @property
     def owner(self) -> str:
         return self.__owner
-    
+
     @owner.setter
     def set_owner(self, owner: str):
         self.__owner = owner
@@ -195,19 +195,22 @@ class BotCog(commands.Cog, name="BotCog"):
         self.bot = bot
         self.chat_ttl = chat_ttl
 
+    def is_owner(self, ctx: commands.Context):
+        return ctx.author.name == self.bot.owner
+
     @commands.command(name="set-owner", help="Set the owner of the bot.")
     async def set_owner(self, ctx: commands.Context):
         """Command to set the owner of the bot."""
-        user = ctx.author.name
-        if user != self.bot.owner:
+        if not self.is_owner(ctx):
             return
         
+        user = ctx.author.name
         self.bot.set_owner(user)
 
     # add command to erase all chats manually. will only be accepted by the bot owner
     @commands.command(name="erase_chats", help="Erase all chats from the chat agent.")
     async def erase_chats(self, ctx: commands.Context):
-        if ctx.author.name != self.bot.owner:
+        if not self.is_owner(ctx):
             return
 
         self.bot.agent.remove_all_chats()
@@ -217,14 +220,25 @@ class BotCog(commands.Cog, name="BotCog"):
     @commands.command(name="set_model", help="Set a new model for the gemini agent.")
     async def set_chat_model(self, ctx: commands.Context):
         """Command to set a new generative model for the gemini agent."""
-        user = ctx.author.name
-        if user != self.bot.owner:
+        if not self.is_owner(ctx):
             return
 
         content = ctx.message.content
         if content:
             self.bot.agent.set_model(model_name=content)
             await ctx.reply(f"New model set.")
+
+    @commands.command(
+        name="add_model", help="Add a new model to the accepted models list."
+    )
+    async def add_model(self, ctx: commands.Context):
+        """Command to add a new model to the accepted models list."""
+        if not self.is_owner(ctx):
+            return
+
+        content = ctx.message.content
+        if content:
+            self.bot.agent.add_model()
 
     @tasks.loop(hours=2)
     async def erase_old_chats(self):
