@@ -24,9 +24,7 @@ GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 genai.configure(api_key=GOOGLE_API_KEY)
 
 # initialize gemini agent instance for content generation
-gemini_agent = GeminiAgent(
-    model_name=MODEL, daily_limit=DAILY_LIMIT, accepted_models=ACCEPTED_MODELS
-)
+gemini_agent = GeminiAgent(api_key=GOOGLE_API_KEY, daily_limit=DAILY_LIMIT)
 
 # create intents object for discord bot initialization
 intents = discord.Intents.default()
