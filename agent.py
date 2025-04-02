@@ -1,7 +1,9 @@
 from datetime import datetime
-from typing import Dict
+from typing import Dict, Optional
+import pathlib
+import requests
 
-import google.generativeai as genai
+from google import genai
 
 from exception import DoneForTheDayException
 from logger import gemini_agent_logger
@@ -13,97 +15,60 @@ class GeminiAgent:
     Agent responsible for managing chat interactions with a multimodal model.
 
     Parameters:
-    model_name (str): The identifier for the generative model to be utilized.
-    daily_limit (int): The maximum number of requests allowed per day.
+        api_key (str): The API key for Google Generative AI.
+            (https://developers.google.com/generative-ai/docs/get-started)
+        model_name (str): The name of the generative model to use.
+        daily_limit (int): The maximum number of requests allowed per day.
 
     Attributes:
-            model (genai.GenerativeModel): The generative model used for chat interactions.
-            chats (Dict[str, Chat]): A dictionary storing chat sessions for users.
-            request_count (int): The current count of requests made.
-
-    Methods:
-            get_chat_for_user(username: str) -> Chat | None: Retrieves the chat session for a specific user.
-            set_model(model_name: str): Sets a new generative model.
-            store_chat(chat: Chat): Stores a chat session.
-            process_chat_prompt(username: str, prompt: str) -> str: Sends a chat interaction for a specific user.
-            process_file_prompt(username: str, prompt: str, file: File) -> str: Sends a chat interaction with a file for a specific user.
+        client (genai.Client): The client used to make requests to Google GenAI.
+        model (str): The current generative model being used.
+        daily_limit (int): The maximum number of requests allowed per day.
+        chats (Dict[str, Chat]): A dictionary storing chat sessions for users.
+        request_count (int): The current count of requests made.
     """
 
-    def __init__(
-        self, model_name: str, daily_limit: int, accepted_models: list[str]
-    ) -> None:
-        self.__model: genai.GenerativeModel = genai.GenerativeModel(model_name)
-        self.__daily_limit: int = daily_limit
-        self.__accepted_models: list[str] = accepted_models
-        self.__chats: Dict[str, Chat] = dict()
-        self.__request_count: int = 0
+    def __init__(self, api_key: str, model_name: str, daily_limit: int) -> None:
+        """Initialize the Gemini Agent with API key and configuration."""
+        self.client: genai.Client = genai.Client(api_key=api_key)
+        self.model: str = model_name
+        self.daily_limit: int = daily_limit
+        self.chats: Dict[str, Chat] = {}
+        self.request_count: int = 0
 
-    """ Properties """
+    # Public Methods
 
-    @property
-    def model(self) -> genai.GenerativeModel:
-        return self.__model
+    def get_chat_for_user(self, username: str) -> Optional[Chat]:
+        """
+        Retrieve the chat session for a specific user.
 
-    @model.setter
-    def model(self, model_name):
-        if model_name not in self.__accepted_models:
-            raise ValueError("Model not supported")
-        self.set_model(model_name)
+        Args:
+            username: The name of the user.
 
-    @property
-    def chats(self) -> Dict[str, Chat]:
-        return self.__chats
-
-    @property
-    def daily_limit(self) -> int:
-        return self.__daily_limit
-
-    @daily_limit.setter
-    def daily_limit(self, daily_limit):
-        self.__daily_limit = daily_limit
-
-    @property
-    def request_count(self) -> int:
-        return self.__request_count
-
-    """ Private Methods """
-
-    def __increment_request_count(self) -> None:
-        self.__request_count += 1
-
-    def __upload_file(self, file_name: str, content_type: str):
-        file = genai.upload_file(path=file_name)
-        return File(file_name, file, content_type)
-
-    def __delete_file(file_name: str) -> None:
-        genai.delete_file(file_name)
-
-    def __validate_request_limit(self) -> None:
-        """Will throw DoneForTheDayException if the request limit will be exceeded."""
-        less_than_limit = self.request_count + 1 <= self.daily_limit
-        if not less_than_limit:
-            raise DoneForTheDayException(
-                message="Daily limit has been reached.", type=type(ValueError).__name__
-            )
-
-    """ Public Methods """
-
-    def get_chat_for_user(self, username: str) -> Chat | None:
+        Returns:
+            The user's chat session or None if not found.
+        """
         return self.chats.get(username, None)
 
     def set_model(self, model_name: str) -> None:
-        self.__model = genai.GenerativeModel(model_name)
+        """
+        Set a new generative model.
+
+        Args:
+            model_name: The name of the model to use.
+        """
+        self.model = model_name
         gemini_agent_logger.info(
             "A new model has been set.", extra=dict(model_name=model_name)
         )
 
-    def add_model(self, model_name: str) -> None:
-        self.__accepted_models.append(model_name)
-        gemini_agent_logger.info(
-            "A new model has been added.", extra=dict(model_name=model_name)
-        )
+    def store_chat(self, chat: Chat) -> None:
+        """
+        Store a chat session.
 
-    def store_chat(self, chat: Chat):
+        Args:
+            chat: The chat to store.
+        """
         if chat:
             self.chats[chat.username] = chat
             gemini_agent_logger.info(
@@ -111,7 +76,13 @@ class GeminiAgent:
             )
 
     def remove_chat(self, username: str) -> None:
-        chat = self.__chats.pop(username, None)
+        """
+        Remove a chat session for a specific user.
+
+        Args:
+            username: The name of the user whose chat to remove.
+        """
+        chat = self.chats.pop(username, None)
         if chat:
             gemini_agent_logger.info(
                 "Chat history has been deleted.",
@@ -119,41 +90,51 @@ class GeminiAgent:
             )
 
     def remove_all_chats(self) -> None:
-        chats = len(self.chats)
+        """Remove all chat sessions."""
+        chats_count = len(self.chats)
         self.chats.clear()
         gemini_agent_logger.info(
-            "All chats have been erased.", extra=dict(chats_deleted=chats)
+            "All chats have been erased.", extra={"chats_deleted": chats_count}
         )
 
     async def process_chat_prompt(self, username: str, prompt: str) -> str:
-        """Sends a chat interaction for a specific user.\n
+        """
+        Send a chat interaction for a specific user.
+
         Args:
             username: The name of the user.
             prompt: The message to send within the chat.
+
         Returns:
             The text response generated by the chat model.
+
+        Raises:
+            DoneForTheDayException: If the daily request limit would be exceeded.
         """
-        self.__validate_request_limit()
+        self._validate_request_limit()
 
         # Fetch existing chat data
         chat = self.get_chat_for_user(username)
+
         # If chat is None, then the user has no chat history, so we will create a new chat
         if chat is None:
             # Start a new chat if no chat history exists for the user
-            chat = self.__model.start_chat(history=[])
-            chat = Chat(username, chat, datetime.now(), None)
+            chat_session = self.client.chats.create(model=self.model)
+            chat = Chat(username, chat_session, datetime.now(), None)
             self.store_chat(chat)
 
-        response = await chat.session.send_message_async(prompt)
+        response = chat.session.send_message(prompt)
         # set the last message time to now
         chat.last_message = datetime.now()
+
         # log the chat message sent
         gemini_agent_logger.info(
             "Chat message sent.",
             extra=dict(username=username, prompt=prompt, chat=chat.serialize()),
         )
+
         # increment request count
-        self.__increment_request_count()
+        self._increment_request_count()
         return response.text
 
     async def process_file_prompt(
@@ -162,20 +143,30 @@ class GeminiAgent:
         prompt: str,
         file: File,
     ) -> str:
-        """Sends a chat interaction for a specific user.\n
+        """
+        Send a chat interaction with a file for a specific user.
+
         Args:
             username: The name of the user.
             prompt: The message to send within the chat.
             file: The file to be processed by the model.
+
         Returns:
             The text response generated by the chat model.
+
+        Raises:
+            DoneForTheDayException: If the daily request limit would be exceeded.
         """
-        self.__validate_request_limit()
+        self._validate_request_limit()
 
         # generate the response using the file and text prompt
-        response = await self.__model.generate_content_async([file.content, prompt])
-        # close the file since we dont need it any more
+        response = await self.client.aio.models.generate_content(
+            model=self.model, contents=[file.content, prompt]
+        )
+
+        # close the file since we don't need it anymore
         file.close()
+
         gemini_agent_logger.info(
             "Content generated using file and text prompt.",
             extra=dict(
@@ -185,4 +176,66 @@ class GeminiAgent:
                 responseLength=len(response.text),
             ),
         )
+
+        self._increment_request_count()
         return response.text
+
+    # Private Methods
+
+    def _increment_request_count(self) -> None:
+        """Increment the request counter."""
+        self.request_count += 1
+
+    def _upload_file(
+        self, file_location: str, file_name: str, content_type: str
+    ) -> File:
+        """Upload a file to the model.
+
+        Args:
+            file_name: The name of the file to upload.
+            content_type: The MIME type of the file.
+
+        Returns:
+            A File object containing the uploaded file information.
+        """
+        response = requests.get(file_location)
+        pathlib.Path(file_name).write_text(response.text)
+
+        file = self.client.files.upload(file=file_name)
+        return File(file_name, file, content_type)
+
+    def _delete_file(self, file_name: str) -> None:
+        """Delete an uploaded file.
+
+        Args:
+            file_name: The name of the file to delete.
+        """
+        self.client.files.delete(name=file_name)
+        gemini_agent_logger.info(
+            "File has been deleted.", extra=dict(file_name=file_name)
+        )
+        # remove the file from the local directory
+        file_path = pathlib.Path(file_name)
+        if file_path.exists():
+            file_path.unlink()
+            gemini_agent_logger.info(
+                "File has been removed from local storage.",
+                extra=dict(file_name=file_name),
+            )
+        else:
+            gemini_agent_logger.warning(
+                "File not found in local storage.",
+                extra=dict(file_name=file_name),
+            )
+
+    def _validate_request_limit(self) -> None:
+        """
+        Check if the request limit will be exceeded.
+
+        Raises:
+            DoneForTheDayException: If the daily limit has been reached.
+        """
+        if self.request_count + 1 > self.daily_limit:
+            raise DoneForTheDayException(
+                message="Daily limit has been reached.", type=type(ValueError).__name__
+            )

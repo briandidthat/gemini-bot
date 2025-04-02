@@ -14,7 +14,6 @@ OWNER = os.getenv("BOT_OWNER")
 CHAT_TTL = int(os.getenv("CHAT_TTL"))
 # gemini agent model configurations
 MODEL = os.getenv("MODEL")
-ACCEPTED_MODELS = os.getenv("ACCEPTED_MODELS").split(",")
 # daily request limit
 DAILY_LIMIT = int(os.getenv("DAILY_LIMIT"))
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
@@ -25,7 +24,7 @@ genai.configure(api_key=GOOGLE_API_KEY)
 
 # initialize gemini agent instance for content generation
 gemini_agent = GeminiAgent(
-    model_name=MODEL, daily_limit=DAILY_LIMIT, accepted_models=ACCEPTED_MODELS
+    api_key=GOOGLE_API_KEY, model_name=MODEL, daily_limit=DAILY_LIMIT
 )
 
 # create intents object for discord bot initialization
