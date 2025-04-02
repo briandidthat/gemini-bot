@@ -14,9 +14,10 @@ class File:
     content_type: str
 
     def serialize(self):
-        return {"name": self.name, "content_type": self.content_type}
+        return dict(name=self.name, content_type=self.content_type)
 
     def close(self):
+        genai.delete_file(name=self.name)
         self.content.close()
 
 
@@ -30,9 +31,9 @@ class Chat:
     last_message: datetime
 
     def serialize(self) -> Dict:
-        return {
-            "username": self.username,
-            "creation_time": self.creation_time,
-            "last_message": self.last_message,
-            "history": len(self.session.history),
-        }
+        return dict(
+            username=self.username,
+            creation_time=self.creation_time,
+            last_message=self.last_message,
+            history=len(self.session.history),
+        )
