@@ -6,7 +6,7 @@ Enhance your Discord server with a powerful conversational AI chatbot backed by 
 
 - Conversational AI: The bot uses Google's Gemini API to generate human-like text responses.
 - User-specific chat history: The bot maintains a separate chat history for each user to provide a more personalized experience.
-- Image processing capabilities. The bot is able to recieve an image as input and process it along with the prompt.
+- File processing capabilities. The bot is able to recieve an file as input and process it along with the prompt.
 
 ## How to Get Started
 
@@ -27,7 +27,7 @@ Enhance your Discord server with a powerful conversational AI chatbot backed by 
    - `DISCORD_TOKEN`: Your Discord API Key.
    - `GOOGLE_API_KEY`: Your Gemini API Key.
 
-4. Deploy the [Gemini-Bot](https://hub.docker.com/repository/docker/briandidthat/gemini-bot/general) image to your infrastructure of choice.
+4. Deploy the [Gemini-Bot](https://hub.docker.com/repository/docker/briandidthat/gemini-bot/general) image to your infrastructure of choice (or local using Docker).
 
 The bot will now be online and ready to interact in your Discord server.
 
