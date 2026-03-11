@@ -28,10 +28,10 @@ class GeminiAgent:
         request_count (int): The current count of requests made.
     """
 
-    def __init__(self, api_key: str, model_name: str, daily_limit: int) -> None:
+    def __init__(self, api_key: str, model: str, daily_limit: int) -> None:
         """Initialize the Gemini Agent with API key and configuration."""
         self.client: genai.Client = genai.Client(api_key=api_key)
-        self.model: str = model_name
+        self.model: str = model
         self.daily_limit: int = daily_limit
         self.chats: Dict[str, Chat] = {}
         self.request_count: int = 0
@@ -119,11 +119,11 @@ class GeminiAgent:
         # If chat is None, then the user has no chat history, so we will create a new chat
         if chat is None:
             # Start a new chat if no chat history exists for the user
-            chat_session = self.client.chats.create(model=self.model)
-            chat = Chat(username, chat_session, datetime.now(), None)
+            chat_session = self.client.aio.chats.create(model=self.model)
+            chat = Chat(username, chat_session, datetime.now(), datetime.now())
             self.store_chat(chat)
 
-        response = chat.session.send_message(prompt)
+        response = await chat.session.send_message_async(content=prompt)
         # set the last message time to now
         chat.last_message = datetime.now()
 
@@ -173,7 +173,7 @@ class GeminiAgent:
                 username=username,
                 prompt=prompt,
                 filename=file.name,
-                responseLength=len(response.text),
+                response_length=len(response.text),
             ),
         )
 
@@ -186,7 +186,7 @@ class GeminiAgent:
         """Increment the request counter."""
         self.request_count += 1
 
-    def _upload_file(
+    async def _upload_file(
         self, file_location: str, file_name: str, content_type: str
     ) -> File:
         """Upload a file to the model.
@@ -199,18 +199,22 @@ class GeminiAgent:
             A File object containing the uploaded file information.
         """
         response = requests.get(file_location)
-        pathlib.Path(file_name).write_text(response.text)
+        pathlib.Path(file_name).write_bytes(response.content)
 
-        file = self.client.files.upload(file=file_name)
+        file = await self.client.aio.files.upload(file=file_name)
+        gemini_agent_logger.info(
+            "File has been uploaded.",
+            extra=dict(file_name=file_name, content_type=content_type),
+        )
         return File(file_name, file, content_type)
 
-    def _delete_file(self, file_name: str) -> None:
+    async def _delete_file(self, file_name: str) -> None:
         """Delete an uploaded file.
 
         Args:
             file_name: The name of the file to delete.
         """
-        self.client.files.delete(name=file_name)
+        await self.client.aio.files.delete(name=file_name)
         gemini_agent_logger.info(
             "File has been deleted.", extra=dict(file_name=file_name)
         )

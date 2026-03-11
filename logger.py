@@ -7,7 +7,7 @@ handler = logging.StreamHandler(stream=None)
 handler.setFormatter(
     jsonlogger.JsonFormatter(
         fmt="%(name)s %(asctime)s %(levelname)s %(message)s",
-        rename_fields={"name": "logger", "asctime": "timestamp", "levelname": "level"},
+        rename_fields=dict(name="logger", asctime="timestamp", levelname="level"),
     )
 )
 

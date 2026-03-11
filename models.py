@@ -35,5 +35,4 @@ class Chat:
             username=self.username,
             creation_time=self.creation_time,
             last_message=self.last_message,
-            history=len(self.session.history),
         )

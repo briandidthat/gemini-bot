@@ -10,22 +10,16 @@ from bot import Bot, BotCog
 load_dotenv()
 # grab api keys from environment
 OWNER = os.getenv("BOT_OWNER")
-# how long the chat will live since last message
-CHAT_TTL = int(os.getenv("CHAT_TTL"))
-# gemini agent model configurations
+CHAT_TTL = int(os.getenv("CHAT_TTL"))  # time to live for chat history
 MODEL = os.getenv("MODEL")
-# daily request limit
-DAILY_LIMIT = int(os.getenv("DAILY_LIMIT"))
-DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+DAILY_LIMIT = int(os.getenv("DAILY_LIMIT"))  # daily request limit
+DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 
 # configure google genai
 genai.configure(api_key=GOOGLE_API_KEY)
-
 # initialize gemini agent instance for content generation
-gemini_agent = GeminiAgent(
-    api_key=GOOGLE_API_KEY, model_name=MODEL, daily_limit=DAILY_LIMIT
-)
+gemini_agent = GeminiAgent(api_key=GOOGLE_API_KEY, model=MODEL, daily_limit=DAILY_LIMIT)
 
 # create intents object for discord bot initialization
 intents = discord.Intents.default()
@@ -33,7 +27,7 @@ intents.message_content = True
 
 # create bot instance
 bot = Bot(OWNER, gemini_agent, command_prefix="$", intents=intents)
-# initialize BogCog instance for bot commands and scheduled tasks
+# initialize BotCog instance for bot commands and scheduled tasks
 bot_cog = BotCog(bot, CHAT_TTL)
 # register the cog
 asyncio.run(bot.add_cog(bot_cog))
