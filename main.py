@@ -2,7 +2,7 @@ import os
 import asyncio
 
 import discord
-import google.generativeai as genai
+from google import genai
 from dotenv import load_dotenv
 from agent import GeminiAgent
 from bot import Bot, BotCog
